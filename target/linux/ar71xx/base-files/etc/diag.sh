@@ -34,7 +34,7 @@ get_status_led() {
 	aw-nr580)
 		status_led="aw-nr580:green:ready"
 		;;
-	bullet-m | rocket-m | nano-m | nanostation-m)
+	bullet-m | rocket-m | nano-m | nanostation-m | nanostation-m-xw)
 		status_led="ubnt:green:link4"
 		;;
 	bxu2000n-2-a1)
@@ -68,6 +68,15 @@ get_status_led() {
 	el-mini | \
 	el-m150)
 		status_led="EasyLink:green:system"
+		;;
+	gl-inet)
+		status_led="gl-connect:green:lan"
+		;;
+	esr1750)
+		status_led="esr1750:amber:power"
+		;;
+	esr900)
+		status_led="engenius:amber:power"
 		;;
 	hiwifi-hc6361)
 		status_led="hiwifi:blue:system"
@@ -135,6 +144,10 @@ get_status_led() {
 	rb-951ui-2hnd)
 		status_led="rb:green:act"
 		;;
+	rb-sxt2n|\
+	rb-sxt5n)
+		status_led="rb:green:power"
+		;;
 	routerstation | routerstation-pro)
 		status_led="ubnt:green:rf"
 		;;
@@ -163,6 +176,9 @@ get_status_led() {
 	tl-wa850re)
 		status_led="tp-link:blue:re"
 		;;
+	tl-wa860re)
+		status_led="tp-link:green:power"
+		;;
 	tl-mr3220 | \
 	tl-mr3220-v2 | \
 	tl-mr3420 | \
@@ -180,6 +196,7 @@ get_status_led() {
 	tl-wr841n-v1 | \
 	tl-wr841n-v7 | \
 	tl-wr841n-v8 | \
+	tl-wa830re-v2 | \
 	tl-wr842n-v2 | \
 	tl-wr941nd)
 		status_led="tp-link:green:system"

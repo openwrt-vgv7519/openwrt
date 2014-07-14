@@ -36,7 +36,7 @@ nand_find_ubi() {
 	done
 }
 
-get_magic_long() {
+nand_get_magic_long() {
 	dd if="$1" skip=$2 bs=4 count=1 2>/dev/null | hexdump -v -n 4 -e '1/1 "%02x"'
 }
 
@@ -70,7 +70,7 @@ identify_magic() {
 
 
 identify() {
-	identify_magic $(get_magic_long "$1" "${2:-0}")
+	identify_magic $(nand_get_magic_long "$1" "${2:-0}")
 }
 
 identify_tar() {
@@ -180,7 +180,7 @@ nand_do_upgrade_success() {
 	
 	sync
 	[ -f "$conf_tar" ] && nand_restore_config "$conf_tar"
-	echo "sysupgrade successfull"
+	echo "sysupgrade successful"
 	reboot -f
 }
 
@@ -226,7 +226,7 @@ nand_upgrade_tar() {
 	local kernel_length=`(tar xf $tar_file sysupgrade-$board_name/kernel -O | wc -c) 2> /dev/null`
 	local rootfs_length=`(tar xf $tar_file sysupgrade-$board_name/root -O | wc -c) 2> /dev/null`
 
-	local rootfs_type="$(identify_tar "$tar_file" root)"
+	local rootfs_type="$(identify_tar "$tar_file" sysupgrade-$board_name/root)"
 
 	local has_kernel=1
 	local has_env=0
