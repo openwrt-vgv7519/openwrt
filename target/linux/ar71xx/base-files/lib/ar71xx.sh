@@ -313,6 +313,9 @@ ar71xx_board_detect() {
 	*"Dragino v2")
 		name="dragino2"
 		;;
+	*"EAP300 v2")
+		name="eap300v2"
+		;;
 	*EAP7660D)
 		name="eap7660d"
 		;;
@@ -624,6 +627,9 @@ ar71xx_board_detect() {
 		;;
 	*"TL-MR13U")
 		name="tl-mr13u"
+		;;
+	*"Tube2H")
+		name="tube2h"
 		;;
 	*UniFi)
 		name="unifi"

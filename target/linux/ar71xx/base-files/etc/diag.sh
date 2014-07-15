@@ -62,6 +62,9 @@ get_status_led() {
 	dir-835-a1)
 		status_led="d-link:amber:power"
 		;;
+	eap300v2)
+		status_led="engenius:blue:power"
+		;;
 	eap7660d)
 		status_led="eap7660d:green:ds4"
 		;;
@@ -216,6 +219,9 @@ get_status_led() {
 		;;
 	tl-wr2543n)
 		status_led="tp-link:green:wps"
+		;;
+	tube2h)
+		status_led="alfa:green:signal4"
 		;;
 	unifi)
 		status_led="ubnt:green:dome"
