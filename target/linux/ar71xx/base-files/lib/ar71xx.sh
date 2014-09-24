@@ -211,6 +211,9 @@ tplink_board_detect() {
 	"453000"*)
 		model="MERCURY MW4530R"
 		;;
+	"934100"*)
+		model="NC-LINK SMART-300"
+		;;
 	*)
 		hwver=""
 		;;
@@ -228,6 +231,9 @@ ar71xx_board_detect() {
 	case "$machine" in
 	*"Oolite V1.0")
 		name="oolite"
+		;;
+	*"AirGateway")
+		name="airgateway"
 		;;
 	*"AirRouter")
 		name="airrouter"
@@ -273,6 +279,9 @@ ar71xx_board_detect() {
 		;;
 	*AP83)
 		name="ap83"
+		;;
+	*"Archer C5")
+		name="archer-c5"
 		;;
 	*"Archer C7")
 		name="archer-c7"
@@ -343,6 +352,9 @@ ar71xx_board_detect() {
 	*"Bullet M")
 		name="bullet-m"
 		;;
+	*"Loco M XW")
+		name="loco-m-xw"
+		;;
 	*"Nanostation M")
 		name="nanostation-m"
 		;;
@@ -409,6 +421,9 @@ ar71xx_board_detect() {
 	*"OM2P LC")
 		name="om2p-lc"
 		;;
+	*OM5P)
+		name="om5p"
+		;;
 	*PB42)
 		name="pb42"
 		;;
@@ -417,6 +432,9 @@ ar71xx_board_detect() {
 		;;
 	*PB92)
 		name="pb92"
+		;;
+	*"Qihoo 360 C301")
+		name="qihoo-c301"
 		;;
 	*"RouterBOARD 411/A/AH")
 		name="rb-411"
@@ -487,6 +505,9 @@ ar71xx_board_detect() {
 	*"RouterBOARD 2011UAS-2HnD")
 		name="rb-2011uas-2hnd"
 		;;
+	*"RouterBOARD 2011UiAS-2HnD")
+		name="rb-2011uias-2hnd"
+		;;
 	*"RouterBOARD SXT Lite2")
 		name="rb-sxt2n"
 		;;
@@ -504,6 +525,9 @@ ar71xx_board_detect() {
 		;;
 	*RW2458N)
 		name="rw2458n"
+		;;
+	*"SMART-300")
+		name="smart-300"
 		;;
 	*TEW-632BRP)
 		name="tew-632brp"
@@ -660,6 +684,9 @@ ar71xx_board_detect() {
 		;;
 	*"WNDR3700/WNDR3800/WNDRMAC")
 		wndr3700_board_detect "$machine"
+		;;
+	*"WNDR3700v4")
+		name="wndr3700v4"
 		;;
 	*"WNDR4300")
 		name="wndr4300"

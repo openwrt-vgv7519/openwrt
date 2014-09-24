@@ -53,6 +53,7 @@ tl-wr1043nd-v2)
 	ucidef_add_switch_vlan "switch0" "2" "5 6"
 	;;
 
+archer-c5 |\
 archer-c7 |\
 tl-wdr4900-v2)
 	ucidef_set_interfaces_lan_wan "eth1" "eth0"
@@ -65,7 +66,8 @@ db120 |\
 rb-2011l | \
 rb-2011uas |\
 rb-2011uias |\
-rb-2011uas-2hnd)
+rb-2011uas-2hnd|\
+rb-2011uias-2hnd)
 	ucidef_set_interfaces_lan_wan "eth0.1 eth1" "eth0.2"
 	ucidef_add_switch "switch0" "1" "1"
 	ucidef_add_switch_vlan "switch0" "1" "0t 2 3 4 5"
@@ -74,7 +76,7 @@ rb-2011uas-2hnd)
 	ucidef_add_switch_vlan "switch1" "1" "0 1 2 3 4 5"
 
 	case "$board" in
-	rb-2011uas* | rb-2011uias)
+	rb-2011uas* | rb-2011uias | rb-2011uias-2hnd)
 		ucidef_set_interface_raw "sfp" "eth0.3"
 		ucidef_add_switch_vlan "switch0" "3" "0t 6"
 		;;
@@ -198,6 +200,7 @@ tl-wr941nd)
 	ucidef_set_interfaces_lan_wan "lan1 lan2 lan3 lan4" "wan"
 	;;
 
+smart-300 | \
 tl-mr3420-v2 |\
 tl-wr841n-v8 |\
 tl-wr842n-v2 |\
@@ -240,7 +243,7 @@ dir-825-c1)
 	ucidef_add_switch "switch0" "1" "1"
 	ucidef_add_switch_vlan "switch0" "1" "0t 1 2 3 4"
 	ucidef_add_switch_vlan "switch0" "2" "0t 5"
-	mac=$(mtd_get_mac_ascii nvram "^wan_mac")
+	mac=$(mtd_get_mac_ascii nvram "wan_mac")
 	[ -n "$mac" ] && ucidef_set_interface_macaddr "wan" "$mac"
 	;;
 
@@ -255,6 +258,7 @@ mynet-n750)
 	;;
 
 dir-835-a1 |\
+wndr3700v4 | \
 wndr4300)
 	ucidef_set_interfaces_lan_wan "eth0.1" "eth0.2"
 	ucidef_add_switch "switch0" "1" "1"
@@ -282,9 +286,14 @@ bullet-m |\
 cap4200ag |\
 eap300v2 |\
 eap7660d |\
+loco-m-xw |\
 mr600 |\
 mr600v2 |\
 rb-411 |\
+rb-911g-2hpnd |\
+rb-911g-5hpnd |\
+rb-912uag-2hpnd |\
+rb-912uag-5hpnd |\
 rb-sxt2n |\
 rb-sxt5n |\
 tl-mr10u |\
@@ -338,6 +347,7 @@ hiwifi-hc6361 |\
 ja76pf |\
 mynet-n600 |\
 oolite |\
+qihoo-c301 |\
 rb-750 |\
 rb-751 |\
 tew-632brp |\

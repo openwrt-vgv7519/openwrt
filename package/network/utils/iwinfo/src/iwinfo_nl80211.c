@@ -22,6 +22,7 @@
  * Parts of this code are derived from the Linux iw utility.
  */
 
+#include <limits.h>
 #include "iwinfo_nl80211.h"
 
 #define min(x, y) ((x) < (y)) ? (x) : (y)
@@ -214,6 +215,9 @@ static struct nl80211_msg_conveyor * nl80211_msg(const char *ifname,
 	int ifidx = -1, phyidx = -1;
 	struct nl80211_msg_conveyor *cv;
 
+	if (ifname == NULL)
+		return NULL;
+
 	if (nl80211_init() < 0)
 		return NULL;
 
@@ -226,7 +230,8 @@ static struct nl80211_msg_conveyor * nl80211_msg(const char *ifname,
 	else
 		ifidx = if_nametoindex(ifname);
 
-	if ((ifidx < 0) && (phyidx < 0))
+	/* Valid ifidx must be greater than 0 */
+	if ((ifidx <= 0) && (phyidx < 0))
 		return NULL;
 
 	cv = nl80211_new(nls->nl80211, cmd, flags);
@@ -499,12 +504,15 @@ static char * nl80211_phy2ifname(const char *ifname)
 	DIR *d;
 	struct dirent *e;
 
+	/* Only accept phy name of the form phy%d or radio%d */
 	if (!ifname)
 		return NULL;
 	else if (!strncmp(ifname, "phy", 3))
 		phyidx = atoi(&ifname[3]);
 	else if (!strncmp(ifname, "radio", 5))
 		phyidx = atoi(&ifname[5]);
+	else
+		return NULL;
 
 	memset(nif, 0, sizeof(nif));
 
@@ -720,9 +728,10 @@ out:
 static char * nl80211_ifadd(const char *ifname)
 {
 	int phyidx;
-	char *rv = NULL;
+	char *rv = NULL, path[PATH_MAX];
 	static char nif[IFNAMSIZ] = { 0 };
 	struct nl80211_msg_conveyor *req, *res;
+	FILE *sysfs;
 
 	req = nl80211_msg(ifname, NL80211_CMD_NEW_INTERFACE, 0);
 	if (req)
@@ -733,6 +742,15 @@ static char * nl80211_ifadd(const char *ifname)
 		NLA_PUT_U32(req->msg, NL80211_ATTR_IFTYPE, NL80211_IFTYPE_STATION);
 
 		nl80211_send(req, NULL, NULL);
+
+		snprintf(path, sizeof(path) - 1,
+		         "/proc/sys/net/ipv6/conf/%s/disable_ipv6", nif);
+
+		if ((sysfs = fopen(path, "w")) != NULL)
+		{
+			fwrite("0\n", 1, 2, sysfs);
+			fclose(sysfs);
+		}
 
 		rv = nif;
 
@@ -1863,11 +1881,70 @@ static int nl80211_get_scanlist_nl(const char *ifname, char *buf, int *len)
 	return *len ? 0 : -1;
 }
 
+static int wpasupp_ssid_decode(const char *in, char *out, int outlen)
+{
+#define hex(x) \
+	(((x) >= 'a') ? ((x) - 'a' + 10) : \
+		(((x) >= 'A') ? ((x) - 'A' + 10) : ((x) - '0')))
+
+	int len = 0;
+
+	while (*in)
+	{
+		if (len + 1 >= outlen)
+			break;
+
+		switch (*in)
+		{
+		case '\\':
+			in++;
+			switch (*in)
+			{
+			case 'n':
+				out[len++] = '\n'; in++;
+				break;
+
+			case 'r':
+				out[len++] = '\r'; in++;
+				break;
+
+			case 't':
+				out[len++] = '\t'; in++;
+				break;
+
+			case 'e':
+				out[len++] = '\e'; in++;
+				break;
+
+			case 'x':
+				if (isxdigit(*(in+1)) && isxdigit(*(in+2)))
+					out[len++] = hex(*(in+1)) * 16 + hex(*(in+2));
+				in += 3;
+				break;
+
+			default:
+				out[len++] = *in++;
+				break;
+			}
+			break;
+
+		default:
+			out[len++] = *in++;
+			break;
+		}
+	}
+
+	if (outlen > len)
+		out[len] = '\0';
+
+	return len;
+}
+
 static int nl80211_get_scanlist(const char *ifname, char *buf, int *len)
 {
-	int freq, rssi, qmax, count;
+	int freq, rssi, qmax, count, mode;
 	char *res;
-	char ssid[128] = { 0 };
+	char ssid[129] = { 0 };
 	char bssid[18] = { 0 };
 	char cipher[256] = { 0 };
 
@@ -1912,7 +1989,7 @@ static int nl80211_get_scanlist(const char *ifname, char *buf, int *len)
 					count++;
 					goto nextline;
 				}
-				if (sscanf(res, "%17s %d %d %255s%*[ \t]%127[^\n]\n",
+				if (sscanf(res, "%17s %d %d %255s%*[ \t]%128[^\n]\n",
 					      bssid, &freq, &rssi, cipher, ssid) < 5)
 				{
 					/* skip malformed lines */
@@ -1927,7 +2004,7 @@ static int nl80211_get_scanlist(const char *ifname, char *buf, int *len)
 				e->mac[5] = strtol(&bssid[15], NULL, 16);
 
 				/* SSID */
-				memcpy(e->ssid, ssid, min(strlen(ssid), sizeof(e->ssid) - 1));
+				wpasupp_ssid_decode(ssid, e->ssid, sizeof(e->ssid));
 
 				/* Mode (assume master) */
 				if (strstr(cipher,"[MESH]"))
@@ -1983,6 +2060,17 @@ static int nl80211_get_scanlist(const char *ifname, char *buf, int *len)
 		}
 	}
 
+	/* station / ad-hoc / monitor scan */
+	else if (!nl80211_get_mode(ifname, &mode) &&
+	         (mode == IWINFO_OPMODE_ADHOC ||
+	          mode == IWINFO_OPMODE_MASTER ||
+	          mode == IWINFO_OPMODE_CLIENT ||
+	          mode == IWINFO_OPMODE_MONITOR) &&
+	         iwinfo_ifup(ifname))
+	{
+		return nl80211_get_scanlist_nl(ifname, buf, len);
+	}
+
 	/* AP scan */
 	else
 	{
@@ -2003,8 +2091,7 @@ static int nl80211_get_scanlist(const char *ifname, char *buf, int *len)
 			if (!(res = nl80211_ifadd(ifname)))
 				goto out;
 
-			if (!iwinfo_ifmac(res))
-				goto out;
+			iwinfo_ifmac(res);
 
 			/* if we can take the new interface up, the driver supports an
 			 * additional interface and there's no need to tear down the ap */

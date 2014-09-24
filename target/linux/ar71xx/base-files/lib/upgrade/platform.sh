@@ -176,6 +176,7 @@ platform_check_image() {
 	dir-835-a1 | \
 	dragino2 | \
 	esr1750 | \
+	esr900 | \
 	ew-dorin | \
 	ew-dorin-router | \
 	hiwifi-hc6361 | \
@@ -186,8 +187,10 @@ platform_check_image() {
 	tew-712br | \
 	tew-732br | \
 	wrt400n | \
+	airgateway | \
 	airrouter | \
 	bullet-m | \
+	loco-m-xw | \
 	nanostation-m | \
 	rocket-m | \
 	nanostation-m-xw | \
@@ -223,6 +226,7 @@ platform_check_image() {
 		return 1
 		;;
 
+	qihoo-c301 | \
 	mynet-n600 | \
 	mynet-n750)
 		[ "$magic_long" != "5ea3a417" ] && {
@@ -244,16 +248,19 @@ platform_check_image() {
 	om2pv2 | \
 	om2p-hs | \
 	om2p-hsv2 | \
-	om2p-lc)
+	om2p-lc | \
+	om5p)
 		platform_check_image_openmesh "$magic_long" "$1" && return 0
 		return 1
 		;;
 
+	archer-c5 | \
 	archer-c7 | \
 	el-m150 | \
 	el-mini | \
 	gl-inet | \
 	oolite | \
+	smart-300 | \
 	tl-mr10u | \
 	tl-mr11u | \
 	tl-mr13u | \
@@ -343,6 +350,7 @@ platform_check_image() {
 		return 0
 		;;
 	nbg6716 | \
+	wndr3700v4 | \
 	wndr4300 )
 		nand_do_platform_check $board $1
 		return $?;
@@ -422,7 +430,8 @@ platform_do_upgrade() {
 	om2pv2 | \
 	om2p-hs | \
 	om2p-hsv2 | \
-	om2p-lc)
+	om2p-lc | \
+	om5p)
 		platform_do_upgrade_openmesh "$ARGV"
 		;;
 	uap-pro)

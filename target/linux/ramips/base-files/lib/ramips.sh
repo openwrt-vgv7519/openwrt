@@ -55,11 +55,11 @@ ramips_board_detect() {
 	*"AsiaRF AWM002 EVB")
 		name="awm002-evb"
 		;;
+	*"AsiaRF AWM003 EVB")
+		name="awm003-evb"
+		;;
 	*"AsiaRF AWAPN2403")
 		name="awapn2403"
-		;;
-	*"BR6524N")
-		name="br6524n"
 		;;
 	*"Asus WL-330N")
 		name="wl-330n"
@@ -121,6 +121,9 @@ ramips_board_detect() {
 	*"ESR-9753")
 		name="esr-9753"
 		;;
+	*"EASYACC WI-STOR WIZARD 8800")
+		name="wizard8800"
+		;;
 	*"Edimax BR-6475nD")
 		name="br-6475nd"
 		;;
@@ -160,6 +163,9 @@ ramips_board_detect() {
 	*"HAME MPR-A2")
  		name="mpr-a2"
  		;;
+	*"Kingston MLW221")
+		name="mlw221"
+		;;
 	*"Planex MZK-750DHP")
 		name="mzk-750dhp"
 		;;
@@ -180,6 +186,9 @@ ramips_board_detect() {
 		;;
 	*"Omnima MiniEMBWiFi")
 		name="omni-emb"
+		;;
+	*"Omnima MiniPlug")
+		name="omni-plug"
 		;;
 	*"Petatel PSR-680W"*)
 		name="psr-680w"
@@ -231,6 +240,9 @@ ramips_board_detect() {
 		;;
 	*"V22RW-2X2")
 		name="v22rw-2x2"
+		;;
+	*"VoCore")
+		name="vocore"
 		;;
 	*"W502U")
 		name="w502u"
@@ -315,6 +327,12 @@ ramips_board_detect() {
 		;;
 	*"ZBT WR8305RT")
 		name="wr8305rt"
+		;;
+	*"Lenovo Y1")
+		name="y1"
+		;;
+	*"Lenovo Y1S")
+		name="y1s"
 		;;
 	*)
 		name="generic"

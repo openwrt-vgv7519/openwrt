@@ -28,7 +28,7 @@ PKG_DRIVERS = \
 	rt2500-usb rt61-pci rt73-usb rt2800-mmio rt2800-pci rt2800-usb rt2800-soc \
 	rtl8180 rtl8187 zd1211rw mac80211-hwsim carl9170 b43 b43legacy \
 	ath9k-common ath9k ath9k-htc ath10k ath net-libipw net-ipw2100 net-ipw2200 \
-	mwl8k net-hermes net-hermes-pci net-hermes-plx net-hermes-pcmcia \
+	mwl8k mwifiex-pcie net-hermes net-hermes-pci net-hermes-plx net-hermes-pcmcia \
 	iwl-legacy iwl3945 iwl4965 iwlagn wlcore wl12xx wl18xx lib80211 \
 	rtlwifi rtlwifi-pci rtlwifi-usb rtl8192c-common rtl8192ce rtl8192se \
 	rtl8192de rtl8192cu
@@ -42,7 +42,13 @@ PKG_CONFIG_DEPENDS:= \
 	CONFIG_PACKAGE_ATH_DFS \
 	CONFIG_PACKAGE_B43_DEBUG \
 	CONFIG_PACKAGE_B43_PIO \
-	CONFIG_PACKAGE_B43_N_PHY \
+	CONFIG_PACKAGE_B43_PHY_G \
+	CONFIG_PACKAGE_B43_PHY_N \
+	CONFIG_PACKAGE_B43_PHY_LP \
+	CONFIG_PACKAGE_B43_PHY_HT \
+	CONFIG_PACKAGE_B43_BUSES_BCMA_AND_SSB \
+	CONFIG_PACKAGE_B43_BUSES_BCMA \
+	CONFIG_PACKAGE_B43_BUSES_SSB \
 	CONFIG_PACKAGE_RTLWIFI_DEBUG \
 	CONFIG_ATH_USER_REGD \
 
@@ -515,12 +521,12 @@ define KernelPackage/ath/config
 
 	config PACKAGE_ATH_DFS
 		bool "Enable DFS support"
+		default y
 		help
 		  Dynamic frequency selection (DFS) is required for most of the 5 GHz band
 		  channels in Europe, US, and Japan.
 
-		  Select this option if you want to use such channels. Only EU (ETSI) DFS
-		  is supported at the moment.
+		  Select this option if you want to use such channels.
 
   endif
 endef
@@ -976,6 +982,22 @@ define KernelPackage/mwl8k/description
 endef
 
 
+define KernelPackage/mwifiex-pcie
+  $(call KernelPackage/mac80211/Default)
+  TITLE:=Driver for Marvell 802.11n/802.11ac PCIe Wireless cards
+  URL:=http://wireless.kernel.org/en/users/Drivers/mwifiex
+  DEPENDS+= @PCI_SUPPORT +kmod-mac80211 +@DRIVER_11N_SUPPORT
+  FILES:= \
+	$(PKG_BUILD_DIR)/drivers/net/wireless/mwifiex/mwifiex.ko \
+	$(PKG_BUILD_DIR)/drivers/net/wireless/mwifiex/mwifiex_pcie.ko
+  AUTOLOAD:=$(call AutoProbe,mwifiex_pcie)
+endef
+
+define KernelPackage/mwifiex-pcie/description
+ Kernel modules for Marvell 802.11n/802.11ac PCIe Wireless cards
+endef
+
+
 define KernelPackage/wlcore
   $(call KernelPackage/mac80211/Default)
   TITLE:=TI common driver part
@@ -1200,8 +1222,8 @@ config PACKAGE_B43_USE_BCMA
 		string "Core revisions to include"
 		depends on B43_FW_SQUASH
 		default "5,6,7,8,9,10,11,13,15" if TARGET_brcm47xx_legacy
-		default "16,28,29" if TARGET_brcm47xx_mips74k
-		default "5,6,7,8,9,10,11,13,15,16,28,29"
+		default "16,28,29,30" if TARGET_brcm47xx_mips74k
+		default "5,6,7,8,9,10,11,13,15,16,28,29,30"
 		help
 		  This is a comma seperated list of core revision numbers.
 
@@ -1586,6 +1608,7 @@ config-$(call config_package,adm8211) += ADM8211
 config-$(call config_package,libertas-sd) += LIBERTAS LIBERTAS_SDIO
 config-$(call config_package,libertas-usb) += LIBERTAS LIBERTAS_USB
 config-$(call config_package,mwl8k) += MWL8K
+config-$(call config_package,mwifiex-pcie) += MWIFIEX MWIFIEX_PCIE
 config-$(call config_package,rtl8180) += RTL8180
 config-$(call config_package,rtl8187) += RTL8187
 config-$(call config_package,wlcore) += WLCORE WLCORE_SDIO
@@ -1824,6 +1847,13 @@ define KernelPackage/mwl8k/install
 		$(1)/lib/firmware/mwl8k/
 endef
 
+define KernelPackage/mwifiex-pcie/install
+	$(INSTALL_DIR) $(1)/lib/firmware/mrvl
+	$(INSTALL_DATA) \
+		$(PKG_BUILD_DIR)/$(PKG_LINUX_FIRMWARE_SUBDIR)/mrvl/pcie8897_uapsta.bin \
+		$(1)/lib/firmware/mrvl/
+endef
+
 define KernelPackage/net-ipw2100/install
 	$(INSTALL_DIR) $(1)/lib/firmware
 	$(INSTALL_DATA) $(PKG_BUILD_DIR)/ipw2100-$(IPW2100_VERSION)*.fw $(1)/lib/firmware
@@ -2002,6 +2032,7 @@ $(eval $(call KernelPackage,iwl-legacy))
 $(eval $(call KernelPackage,iwl4965))
 $(eval $(call KernelPackage,iwl3945))
 $(eval $(call KernelPackage,mwl8k))
+$(eval $(call KernelPackage,mwifiex-pcie))
 $(eval $(call KernelPackage,net-hermes))
 $(eval $(call KernelPackage,net-hermes-pci))
 $(eval $(call KernelPackage,net-hermes-plx))
