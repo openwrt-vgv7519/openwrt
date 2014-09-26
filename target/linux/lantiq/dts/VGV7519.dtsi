@@ -60,7 +60,7 @@
 							"io21",
 							"io33",
 							"io7", "io44"; /* Internal ethernet phy leds */
-					lantiq,open-drain;
+					lantiq,open-drain = <0>;
 					lantiq,pull = <0>;
 					lantiq,output = <1>;
 				};
