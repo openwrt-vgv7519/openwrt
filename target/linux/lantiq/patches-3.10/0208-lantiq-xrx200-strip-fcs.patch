@@ -1,5 +1,5 @@
---- linux-3.10.44.orig/drivers/net/ethernet/lantiq_xrx200.c	2014-07-16 10:32:35.000000000 +0200
-+++ linux-3.10.44/drivers/net/ethernet/lantiq_xrx200.c	2014-07-16 10:31:34.000000000 +0200
+--- lantiq_xrx200.c.orig	2014-07-16 10:32:35.000000000 +0200
++++ lantiq_xrx200.c	2014-07-16 10:31:34.000000000 +0200
 @@ -246,6 +246,8 @@
  	unsigned char mac[6];
  
