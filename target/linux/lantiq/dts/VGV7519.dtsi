@@ -97,7 +97,6 @@
 			>;
 			interrupt-parent = <&icu0>;
 			interrupts = <73 72>;
-			lantiq,nostripfcs;
 
 			lan: interface@0 {
 				compatible = "lantiq,xrx200-pdi";

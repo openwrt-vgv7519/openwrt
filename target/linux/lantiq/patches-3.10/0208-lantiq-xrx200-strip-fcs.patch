@@ -1,44 +1,11 @@
---- lantiq_xrx200.c.orig	2014-07-16 10:32:35.000000000 +0200
-+++ lantiq_xrx200.c	2014-07-16 10:31:34.000000000 +0200
-@@ -246,6 +246,8 @@
- 	unsigned char mac[6];
- 
- 	struct xrx200_hw *hw;
-+
-+    bool nostripfcs;
- };
- 
- static __iomem void *xrx200_switch_membase;
-@@ -937,6 +939,11 @@
+--- a/drivers/net/ethernet/lantiq_xrx200.c
++++ b/drivers/net/ethernet/lantiq_xrx200.c
+@@ -933,7 +933,7 @@ static void xrx200_hw_receive(struct xrx
+ 	struct xrx200_priv *priv = netdev_priv(dev);
+ 	struct ltq_dma_desc *desc = &ch->dma.desc_base[ch->dma.desc];
+ 	struct sk_buff *skb = ch->skb[ch->dma.desc];
+-	int len = (desc->ctl & LTQ_DMA_SIZE_MASK);
++	int len = (desc->ctl & LTQ_DMA_SIZE_MASK) - ETH_FCS_LEN;
  	unsigned long flags;
  
  	spin_lock_irqsave(&priv->hw->lock, flags);
-+
-+	if (!priv->nostripfcs) {
-+		int len = len - ETH_FCS_LEN;
-+	}
-+
- 	if (xrx200_alloc_skb(ch)) {
- 		netdev_err(dev,
- 			"failed to allocate new rx buffer, stopping DMA\n");
-@@ -1630,6 +1637,7 @@
- 	struct device_node *port;
- 	const __be32 *wan;
- 	const __be32 *sw;
-+	const __be32 *nostripfcs;
- 
- 	/* alloc the network device */
- 	hw->devs[hw->num_devs] = alloc_etherdev(sizeof(struct xrx200_priv));
-@@ -1658,6 +1666,12 @@
- 	if (sw && (*sw == 1))
- 		priv->sw = 1;
- 
-+	/* should the fcs be stripped from eth packet on this board ? */
-+	nostripfcs = of_get_property(iface, "lantiq,nostripfcs", NULL);
-+	if (nostripfcs && (*nostripfcs == 1)) {
-+		priv->nostripfcs = 1;
-+    }
-+
- 	/* load the ports that are part of the interface */
- 	for_each_child_of_node(iface, port)
- 		if (of_device_is_compatible(port, "lantiq,xrx200-pdi-port"))
