@@ -38,29 +38,28 @@
 			reg = <0xE100B10 0xA0>;
 
 			state_default: pinmux {
-				exin3 {
+				/*exin3 {
 					lantiq,groups = "exin3";
 					lantiq,function = "exin";
-				};
+				};*/
 				stp {
 					lantiq,groups = "stp";
 					lantiq,function = "stp";
 				};
 				spi {
-					lantiq,groups = "spi", "spi_cs4";
+					lantiq,groups = "spi";
 					lantiq,function = "spi";
 				};
 				mdio {
 					lantiq,groups = "mdio";
 					lantiq,function = "mdio";
 				};
-				pci {
+/*				pci {
 					lantiq,groups = "gnt1", "req1";
 					lantiq,function = "pci";
-				};
-				conf_out {
-					lantiq,pins = 	"io33",
-							"io7", "io44"; /* Internal ethernet phy leds */
+				};*/
+				gphy-leds_out {
+					lantiq,pins = "io7";
 					lantiq,pull = <0>;
 					lantiq,output = <1>;
 				};
@@ -83,10 +82,26 @@
 					lantiq,pull = <0>;
 					lantiq,output = <1>;
 				};
-				conf_in {
-					lantiq,pins = "io39"; /* exin3 */
-					lantiq,pull = <2>;
+				/*conf_in {
+					lantiq,pins = "io39";
+					lantiq,pull = <0>;
+				};*/
+				spi-in {
+					lantiq,pins = "io16";
+					lantiq,open-drain = <1>;
+					lantiq,pull = <0>;
+					lantiq,output = <0>;
 				};
+				spi-out {
+					lantiq,pins = "io17", "io18", "io22";
+					lantiq,open-drain = <0>;
+					lantiq,pull = <0>;
+					lantiq,output = <1>;
+				};
+				spi-cs {
+					lantiq,pins = "io22";
+					lantiq,group = "";
+				}
 			};
 		};
 
