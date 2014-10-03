@@ -69,7 +69,7 @@
 					lantiq,open-drain = <0>;
 					lantiq,output = <1>;
 					lantiq,pull = <0>;
-				}
+				};
 				pci-rst {
 					lantiq,pins = "io21";
 					lantiq,open-drain = <0>;
