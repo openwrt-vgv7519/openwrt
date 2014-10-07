@@ -22,8 +22,10 @@ define Target/Description
 	Build firmware images for Broadcom based BCM47xx/53xx routers with ARM CPU, *not* MIPS.
 endef
 
-KERNELNAME:="zImage dtbs"
+KERNELNAME:=zImage dtbs
 
-DEFAULT_PACKAGES += swconfig wpad-mini nvram
+DEFAULT_PACKAGES += swconfig wpad-mini nvram \
+	kmod-gpio-button-hotplug \
+	kmod-leds-gpio kmod-ledtrig-default-on kmod-ledtrig-timer
 
 $(eval $(call BuildTarget))
