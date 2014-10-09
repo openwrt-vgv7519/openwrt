@@ -15,7 +15,7 @@ choice
 
 	config VOICE_CPE_VMMC_WITH_DEVICE_VR9
 		bool "VR9 family"
-		depends on TARGET_lantiq_vr9
+		depends on TARGET_lantiq_xrx200
 	
 	config VOICE_VMMC_WITH_DEVICE_FALCON
 		bool "FALC-ON"
