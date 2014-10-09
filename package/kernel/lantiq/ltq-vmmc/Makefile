@@ -119,7 +119,16 @@ endif
 
 ifeq ($(CONFIG_VOICE_CPE_VMMC_WITH_DEVICE_VR9),y)
   CONFIGURE_ARGS += --with-device=VR9
-  # TODO: add fw/coef
+  FW_SOURCE:=voip_R2.3.1.7.0-enc.bin
+  FW_TARGET:=voip_R2.3.1.7.0-enc.bin
+  FW_FILE=fw_voip_vr9-2.3.1.7.0.tar.gz
+  FW_MD5SUM:=9d716b99349b56b619dbaf6647b227cb
+  FW_DOWNLOAD:=1
+  COEF_SRC:=ETSI_3_10.BIN
+  COEF_TARGET:=ETSI_3_10.BIN
+  COEF_FILE:=coef_voip_vr9-0.9.3.tar.gz
+  COEF_MD5SUM:=66fa5c6a4110726b1f8658359b8008e6
+  COEF_DOWNLOAD:=1
 endif
 
 define Download/firmware

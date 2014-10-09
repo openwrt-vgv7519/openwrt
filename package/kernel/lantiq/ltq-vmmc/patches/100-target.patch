@@ -749,3 +749,73 @@ Index: drv_vmmc-1.9.0/src/mps/drv_mps_vmmc_danube.c
  # define LQ_RCU_RST		((u32 *)(LQ_RCU_BASE_ADDR + 0x0010))
  #define IFX_RCU_RST_REQ_CPU1             (1 << 3)
  #  define IFX_RCU_RST_REQ        LQ_RCU_RST
+--- a/src/drv_vmmc_amazon_s.h	2009-12-03 17:20:34.000000000 +0100
++++ b/src/drv_vmmc_amazon_s.h	2014-10-09 17:08:27.000000000 +0200
+@@ -16,7 +16,8 @@
+ 
+ 
+ #if defined(SYSTEM_AR9) || defined(SYSTEM_VR9)
+-#include <asm/ifx/ifx_gpio.h>
++#include <lantiq_soc.h>
++
+ #else
+ #error no system selected
+ #endif
+@@ -27,45 +28,6 @@
+ */
+ #define VMMC_PCM_IF_CFG_HOOK(mode, GPIOreserved, ret) \
+ do { \
+-   ret = VMMC_statusOk; \
+-   /* Reserve P0.0 as TDM/FSC */ \
+-   if (!GPIOreserved) \
+-      ret |= ifx_gpio_pin_reserve(IFX_GPIO_PIN_ID(0, 0), VMMC_TAPI_GPIO_MODULE_ID); \
+-   ret |= ifx_gpio_altsel0_set(IFX_GPIO_PIN_ID(0, 0), VMMC_TAPI_GPIO_MODULE_ID); \
+-   ret |= ifx_gpio_altsel1_set(IFX_GPIO_PIN_ID(0, 0), VMMC_TAPI_GPIO_MODULE_ID); \
+-   ret |= ifx_gpio_open_drain_set(IFX_GPIO_PIN_ID(0, 0), VMMC_TAPI_GPIO_MODULE_ID);\
+-   \
+-   /* Reserve P1.9 as TDM/DO */ \
+-   if (!GPIOreserved) \
+-      ret |= ifx_gpio_pin_reserve(IFX_GPIO_PIN_ID(1, 9), VMMC_TAPI_GPIO_MODULE_ID); \
+-   ret |= ifx_gpio_altsel0_set(IFX_GPIO_PIN_ID(1, 9), VMMC_TAPI_GPIO_MODULE_ID); \
+-   ret |= ifx_gpio_altsel1_clear(IFX_GPIO_PIN_ID(1, 9), VMMC_TAPI_GPIO_MODULE_ID); \
+-   ret |= ifx_gpio_dir_out_set(IFX_GPIO_PIN_ID(1, 9), VMMC_TAPI_GPIO_MODULE_ID); \
+-   ret |= ifx_gpio_open_drain_set(IFX_GPIO_PIN_ID(1, 9), VMMC_TAPI_GPIO_MODULE_ID); \
+-   \
+-   /* Reserve P2.9 as TDM/DI */ \
+-   if (!GPIOreserved) \
+-      ret |= ifx_gpio_pin_reserve(IFX_GPIO_PIN_ID(2, 9), VMMC_TAPI_GPIO_MODULE_ID); \
+-   ret |= ifx_gpio_altsel0_clear(IFX_GPIO_PIN_ID(2, 9), VMMC_TAPI_GPIO_MODULE_ID); \
+-   ret |= ifx_gpio_altsel1_set(IFX_GPIO_PIN_ID(2, 9), VMMC_TAPI_GPIO_MODULE_ID);\
+-   ret |= ifx_gpio_dir_in_set(IFX_GPIO_PIN_ID(2, 9), VMMC_TAPI_GPIO_MODULE_ID); \
+-   \
+-   /* Reserve P2.8 as TDM/DCL */ \
+-   if (!GPIOreserved) \
+-      ret |= ifx_gpio_pin_reserve(IFX_GPIO_PIN_ID(2, 8), VMMC_TAPI_GPIO_MODULE_ID); \
+-   ret |= ifx_gpio_altsel0_clear(IFX_GPIO_PIN_ID(2, 8), VMMC_TAPI_GPIO_MODULE_ID); \
+-   ret |= ifx_gpio_altsel1_set(IFX_GPIO_PIN_ID(2, 8), VMMC_TAPI_GPIO_MODULE_ID); \
+-   ret |= ifx_gpio_open_drain_set(IFX_GPIO_PIN_ID(2, 8), VMMC_TAPI_GPIO_MODULE_ID); \
+-   \
+-   if (mode == 2) { \
+-      /* TDM/FSC+DCL Master */ \
+-      ret |= ifx_gpio_dir_out_set(IFX_GPIO_PIN_ID(0, 0), VMMC_TAPI_GPIO_MODULE_ID); \
+-      ret |= ifx_gpio_dir_out_set(IFX_GPIO_PIN_ID(2, 8), VMMC_TAPI_GPIO_MODULE_ID); \
+-   } else { \
+-      /* TDM/FSC+DCL Slave */ \
+-      ret |= ifx_gpio_dir_in_set(IFX_GPIO_PIN_ID(0, 0), VMMC_TAPI_GPIO_MODULE_ID); \
+-      ret |= ifx_gpio_dir_in_set(IFX_GPIO_PIN_ID(2, 8), VMMC_TAPI_GPIO_MODULE_ID); \
+-   } \
+ } while(0);
+ 
+ /**
+@@ -73,11 +35,6 @@
+ */
+ #define VMMC_DRIVER_UNLOAD_HOOK(ret) \
+ do { \
+-   ret = VMMC_statusOk; \
+-   ret |= ifx_gpio_pin_free(IFX_GPIO_PIN_ID(0, 0), VMMC_TAPI_GPIO_MODULE_ID); \
+-   ret |= ifx_gpio_pin_free(IFX_GPIO_PIN_ID(1, 9), VMMC_TAPI_GPIO_MODULE_ID); \
+-   ret |= ifx_gpio_pin_free(IFX_GPIO_PIN_ID(2, 9), VMMC_TAPI_GPIO_MODULE_ID); \
+-   ret |= ifx_gpio_pin_free(IFX_GPIO_PIN_ID(2, 8), VMMC_TAPI_GPIO_MODULE_ID); \
+ } while (0)
+ 
+ #endif /* _DRV_VMMC_AMAZON_S_H */
