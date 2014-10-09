@@ -31,7 +31,9 @@ define Profile/VGV7519BRN
 	kmod-ltq-deu-vr9 kmod-ltq-hcd-vr9 \
 	kmod-ltq-vdsl-vr9-mei kmod-ltq-vdsl-vr9 \
 	kmod-ltq-atm-vr9 ltq-vdsl-vr9-fw-installer \
-	ltq-vdsl-app ppp-mod-pppoa
+	ltq-vdsl-app ppp-mod-pppoa \
+	kmod-ltq-tapi kmod-ltq-vmmc \
+	swconfig
 endef
 
 $(eval $(call Profile,VGV7519BRN))
