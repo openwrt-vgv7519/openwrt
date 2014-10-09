@@ -215,7 +215,6 @@
 		pcie@d900000 {
 			status = "disabled";
 		};
-
 	};
 
 	gphy-xrx200 {
