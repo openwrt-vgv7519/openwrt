@@ -1,62 +1,9 @@
-From 1a3548545403c8f7cc02317643b616db6d0c9a4b Mon Sep 17 00:00:00 2001
-From: John Crispin <blogic@openwrt.org>
-Date: Thu, 29 Sep 2011 20:30:40 +0200
-Subject: [PATCH 15/25] VPE extensions
-
----
- arch/mips/Kconfig                  |   22 +++
- arch/mips/include/asm/mipsmtregs.h |   54 +++++++
- arch/mips/kernel/Makefile          |    3 +-
- arch/mips/kernel/mips-mt.c         |   97 +++++++++++--
- arch/mips/kernel/mtsched_proc.c    |  279 ++++++++++++++++++++++++++++++++++++
- arch/mips/kernel/perf_proc.c       |  191 ++++++++++++++++++++++++
- arch/mips/kernel/proc.c            |   17 +++
- arch/mips/kernel/smtc.c            |    7 +
- arch/mips/kernel/vpe.c             |  250 ++++++++++++++++++++++++++++++++-
- 9 files changed, 905 insertions(+), 15 deletions(-)
- create mode 100644 arch/mips/kernel/mtsched_proc.c
- create mode 100644 arch/mips/kernel/perf_proc.c
-
-diff --git a/arch/mips/Kconfig b/arch/mips/Kconfig
-index 0e2ce5d..e152c85 100644
---- a/arch/mips/Kconfig
-+++ b/arch/mips/Kconfig
-@@ -1948,6 +1948,28 @@ config MIPS_VPE_LOADER
- 	  Includes a loader for loading an elf relocatable object
- 	  onto another VPE and running it.
- 
-+config IFX_VPE_EXT
-+	bool "IFX APRP Extensions"
-+	depends on MIPS_VPE_LOADER
-+	default y
-+	help
-+	  IFX included extensions in APRP
-+
-+config PERFCTRS
-+	bool "34K Performance counters"
-+	depends on MIPS_MT && PROC_FS
-+	default n
-+	help
-+	  34K Performance counter through /proc
-+
-+config MTSCHED
-+	bool "Support mtsched priority configuration for TCs"
-+	depends on MIPS_MT && PROC_FS
-+	default y
-+	help
-+	  Support for mtsched priority configuration for TCs through
-+	  /proc/mips/mtsched
-+
- config MIPS_MT_SMTC_IM_BACKSTOP
- 	bool "Use per-TC register bits as backstop for inhibited IM bits"
- 	depends on MIPS_MT_SMTC
-diff --git a/arch/mips/include/asm/mipsmtregs.h b/arch/mips/include/asm/mipsmtregs.h
-index c9420aa..04bfb4b 100644
---- a/arch/mips/include/asm/mipsmtregs.h
-+++ b/arch/mips/include/asm/mipsmtregs.h
-@@ -28,14 +28,34 @@
- #define read_c0_vpeconf0()		__read_32bit_c0_register($1, 2)
- #define write_c0_vpeconf0(val)		__write_32bit_c0_register($1, 2, val)
+diff -u -N -r linux-3.14.18.orig/arch/mips/include/asm/mipsmtregs.h linux-3.14.18/arch/mips/include/asm/mipsmtregs.h
+--- linux-3.14.18.orig/arch/mips/include/asm/mipsmtregs.h	2014-10-10 17:14:00.000000000 +0200
++++ linux-3.14.18/arch/mips/include/asm/mipsmtregs.h	2014-10-10 18:07:25.000000000 +0200
+@@ -31,14 +31,34 @@
+ #define read_c0_vpeconf1()		__read_32bit_c0_register($1, 3)
+ #define write_c0_vpeconf1(val)		__write_32bit_c0_register($1, 3, val)
  
 +#define read_c0_vpeconf1()              __read_32bit_c0_register($1, 3)
 +#define write_c0_vpeconf1(val)          __write_32bit_c0_register($1, 3, val)
@@ -89,7 +36,7 @@ index c9420aa..04bfb4b 100644
  #else /* Assembly */
  /*
   * Macros for use in assembly language code
-@@ -74,6 +94,8 @@
+@@ -77,6 +97,8 @@
  #define MVPCONTROL_STLB_SHIFT	2
  #define MVPCONTROL_STLB		(_ULCAST_(1) << MVPCONTROL_STLB_SHIFT)
  
@@ -98,7 +45,7 @@ index c9420aa..04bfb4b 100644
  
  /* MVPConf0 fields */
  #define MVPCONF0_PTC_SHIFT	0
-@@ -84,6 +106,8 @@
+@@ -87,6 +109,8 @@
  #define MVPCONF0_TCA		( _ULCAST_(1) << MVPCONF0_TCA_SHIFT)
  #define MVPCONF0_PTLBE_SHIFT	16
  #define MVPCONF0_PTLBE		(_ULCAST_(0x3ff) << MVPCONF0_PTLBE_SHIFT)
@@ -107,7 +54,7 @@ index c9420aa..04bfb4b 100644
  #define MVPCONF0_TLBS_SHIFT	29
  #define MVPCONF0_TLBS		(_ULCAST_(1) << MVPCONF0_TLBS_SHIFT)
  #define MVPCONF0_M_SHIFT	31
-@@ -121,9 +145,25 @@
+@@ -124,9 +148,25 @@
  #define VPECONF0_VPA		(_ULCAST_(1) << VPECONF0_VPA_SHIFT)
  #define VPECONF0_MVP_SHIFT	1
  #define VPECONF0_MVP		(_ULCAST_(1) << VPECONF0_MVP_SHIFT)
@@ -130,13 +77,13 @@ index c9420aa..04bfb4b 100644
 +#define VPEOPT_DWX2		( _ULCAST_(0x4) << VPEOPT_DWX_SHIFT)
 +#define VPEOPT_DWX3		( _ULCAST_(0x8) << VPEOPT_DWX_SHIFT)
 +
- /* TCStatus fields (per TC) */
- #define TCSTATUS_TASID		(_ULCAST_(0xff))
- #define TCSTATUS_IXMT_SHIFT	10
-@@ -350,6 +390,14 @@ do {									\
- #define write_vpe_c0_vpecontrol(val)	mttc0(1, 1, val)
- #define read_vpe_c0_vpeconf0()		mftc0(1, 2)
+ /* VPEConf1 fields (per VPE) */
+ #define VPECONF1_NCP1_SHIFT	0
+ #define VPECONF1_NCP1		(_ULCAST_(0xff) << VPECONF1_NCP1_SHIFT)
+@@ -363,6 +403,14 @@
  #define write_vpe_c0_vpeconf0(val)	mttc0(1, 2, val)
+ #define read_vpe_c0_vpeconf1()		mftc0(1, 3)
+ #define write_vpe_c0_vpeconf1(val)	mttc0(1, 3, val)
 +#define read_vpe_c0_vpeschedule()	mftc0(1, 5)
 +#define write_vpe_c0_vpeschedule(val)	mttc0(1, 5, val)
 +#define read_vpe_c0_vpeschefback()	mftc0(1, 6)
@@ -148,7 +95,7 @@ index c9420aa..04bfb4b 100644
  #define read_vpe_c0_count()		mftc0(9, 0)
  #define write_vpe_c0_count(val)		mttc0(9, 0, val)
  #define read_vpe_c0_status()		mftc0(12, 0)
-@@ -381,6 +429,12 @@ do {									\
+@@ -394,6 +442,12 @@
  #define write_tc_c0_tchalt(val)		mttc0(2, 4, val)
  #define read_tc_c0_tccontext()		mftc0(2, 5)
  #define write_tc_c0_tccontext(val)	mttc0(2, 5, val)
@@ -161,11 +108,42 @@ index c9420aa..04bfb4b 100644
  
  /* GPR */
  #define read_tc_gpr_sp()		mftgpr(29)
-diff --git a/arch/mips/kernel/Makefile b/arch/mips/kernel/Makefile
-index cacc340..477bcc3 100644
---- a/arch/mips/kernel/Makefile
-+++ b/arch/mips/kernel/Makefile
-@@ -90,7 +90,8 @@ obj-$(CONFIG_MIPS32_O32)	+= binfmt_elfo32.o scall64-o32.o
+diff -u -N -r linux-3.14.18.orig/arch/mips/Kconfig linux-3.14.18/arch/mips/Kconfig
+--- linux-3.14.18.orig/arch/mips/Kconfig	2014-10-10 17:14:00.000000000 +0200
++++ linux-3.14.18/arch/mips/Kconfig	2014-10-10 18:05:15.000000000 +0200
+@@ -1960,6 +1960,28 @@
+ 	default "y"
+ 	depends on MIPS_VPE_LOADER && !MIPS_CMP
+ 
++config IFX_VPE_EXT
++	bool "IFX APRP Extensions"
++	depends on MIPS_VPE_LOADER
++	default y
++	help
++	  IFX included extensions in APRP
++
++config PERFCTRS
++	bool "34K Performance counters"
++	depends on MIPS_MT && PROC_FS
++	default n
++	help
++	  34K Performance counter through /proc
++
++config MTSCHED
++	bool "Support mtsched priority configuration for TCs"
++	depends on MIPS_MT && PROC_FS
++	default y
++	help
++	  Support for mtsched priority configuration for TCs through
++	  /proc/mips/mtsched
++
+ config MIPS_MT_SMTC_IM_BACKSTOP
+ 	bool "Use per-TC register bits as backstop for inhibited IM bits"
+ 	depends on MIPS_MT_SMTC
+diff -u -N -r linux-3.14.18.orig/arch/mips/kernel/Makefile linux-3.14.18/arch/mips/kernel/Makefile
+--- linux-3.14.18.orig/arch/mips/kernel/Makefile	2014-10-10 17:14:00.000000000 +0200
++++ linux-3.14.18/arch/mips/kernel/Makefile	2014-10-10 18:05:15.000000000 +0200
+@@ -79,7 +79,8 @@
  
  obj-$(CONFIG_KGDB)		+= kgdb.o
  obj-$(CONFIG_PROC_FS)		+= proc.o
@@ -175,11 +153,10 @@ index cacc340..477bcc3 100644
  obj-$(CONFIG_64BIT)		+= cpu-bugs64.o
  
  obj-$(CONFIG_I8253)		+= i8253.o
-diff --git a/arch/mips/kernel/mips-mt.c b/arch/mips/kernel/mips-mt.c
-index c23d11f..11d6489 100644
---- a/arch/mips/kernel/mips-mt.c
-+++ b/arch/mips/kernel/mips-mt.c
-@@ -21,26 +21,96 @@
+diff -u -N -r linux-3.14.18.orig/arch/mips/kernel/mips-mt.c linux-3.14.18/arch/mips/kernel/mips-mt.c
+--- linux-3.14.18.orig/arch/mips/kernel/mips-mt.c	2014-10-10 17:14:00.000000000 +0200
++++ linux-3.14.18/arch/mips/kernel/mips-mt.c	2014-10-10 18:05:15.000000000 +0200
+@@ -20,26 +20,96 @@
  #include <asm/cacheflush.h>
  
  int vpelimit;
@@ -281,7 +258,7 @@ index c23d11f..11d6489 100644
  
  /*
   * Dump new MIPS MT state for the core. Does not leave TCs halted.
-@@ -78,18 +148,18 @@ void mips_mt_regdump(unsigned long mvpctl)
+@@ -77,18 +147,18 @@
  			if ((read_tc_c0_tcbind() & TCBIND_CURVPE) == i) {
  				printk("  VPE %d\n", i);
  				printk("   VPEControl : %08lx\n",
@@ -307,7 +284,7 @@ index c23d11f..11d6489 100644
  				break; /* Next VPE */
  			}
  		}
-@@ -287,6 +357,9 @@ void mips_mt_set_cpuoptions(void)
+@@ -286,6 +356,9 @@
  		printk("Mapped %ld ITC cells starting at 0x%08x\n",
  			((itcblkgrn & 0x7fe00000) >> 20), itc_base);
  	}
@@ -317,11 +294,9 @@ index c23d11f..11d6489 100644
  }
  
  /*
-diff --git a/arch/mips/kernel/mtsched_proc.c b/arch/mips/kernel/mtsched_proc.c
-new file mode 100644
-index 0000000..4dafded
---- /dev/null
-+++ b/arch/mips/kernel/mtsched_proc.c
+diff -u -N -r linux-3.14.18.orig/arch/mips/kernel/mtsched_proc.c linux-3.14.18/arch/mips/kernel/mtsched_proc.c
+--- linux-3.14.18.orig/arch/mips/kernel/mtsched_proc.c	1970-01-01 01:00:00.000000000 +0100
++++ linux-3.14.18/arch/mips/kernel/mtsched_proc.c	2014-10-10 18:05:15.000000000 +0200
 @@ -0,0 +1,279 @@
 +/*
 + * /proc hooks for MIPS MT scheduling policy management for 34K cores
@@ -602,11 +577,9 @@ index 0000000..4dafded
 +
 +/* Automagically create the entry */
 +module_init(init_mtsched_proc);
-diff --git a/arch/mips/kernel/perf_proc.c b/arch/mips/kernel/perf_proc.c
-new file mode 100644
-index 0000000..7eec015
---- /dev/null
-+++ b/arch/mips/kernel/perf_proc.c
+diff -u -N -r linux-3.14.18.orig/arch/mips/kernel/perf_proc.c linux-3.14.18/arch/mips/kernel/perf_proc.c
+--- linux-3.14.18.orig/arch/mips/kernel/perf_proc.c	1970-01-01 01:00:00.000000000 +0100
++++ linux-3.14.18/arch/mips/kernel/perf_proc.c	2014-10-10 18:05:15.000000000 +0200
 @@ -0,0 +1,191 @@
 +/*
 + * /proc hooks for CPU performance counter support for SMTC kernel
@@ -799,10 +772,9 @@ index 0000000..7eec015
 +
 +/* Automagically create the entry */
 +module_init(init_perf_proc);
-diff --git a/arch/mips/kernel/proc.c b/arch/mips/kernel/proc.c
-index e309665..2de204f 100644
---- a/arch/mips/kernel/proc.c
-+++ b/arch/mips/kernel/proc.c
+diff -u -N -r linux-3.14.18.orig/arch/mips/kernel/proc.c linux-3.14.18/arch/mips/kernel/proc.c
+--- linux-3.14.18.orig/arch/mips/kernel/proc.c	2014-10-10 17:14:00.000000000 +0200
++++ linux-3.14.18/arch/mips/kernel/proc.c	2014-10-10 18:05:15.000000000 +0200
 @@ -7,6 +7,7 @@
  #include <linux/kernel.h>
  #include <linux/sched.h>
@@ -811,7 +783,7 @@ index e309665..2de204f 100644
  #include <asm/bootinfo.h>
  #include <asm/cpu.h>
  #include <asm/cpu-features.h>
-@@ -110,3 +111,19 @@ const struct seq_operations cpuinfo_op = {
+@@ -146,3 +147,19 @@
  	.stop	= c_stop,
  	.show	= show_cpuinfo,
  };
@@ -831,11 +803,10 @@ index e309665..2de204f 100644
 +               mips_proc = proc_mkdir("mips", NULL);
 +       return(mips_proc);
 +}
-diff --git a/arch/mips/kernel/smtc.c b/arch/mips/kernel/smtc.c
-index 0a42ff3..41f5258 100644
---- a/arch/mips/kernel/smtc.c
-+++ b/arch/mips/kernel/smtc.c
-@@ -1334,6 +1334,13 @@ void smtc_get_new_mmu_context(struct mm_struct *mm, unsigned long cpu)
+diff -u -N -r linux-3.14.18.orig/arch/mips/kernel/smtc.c linux-3.14.18/arch/mips/kernel/smtc.c
+--- linux-3.14.18.orig/arch/mips/kernel/smtc.c	2014-10-10 17:14:00.000000000 +0200
++++ linux-3.14.18/arch/mips/kernel/smtc.c	2014-10-10 18:05:15.000000000 +0200
+@@ -1394,6 +1394,13 @@
  	asid = asid_cache(cpu);
  
  	do {
@@ -849,13 +820,12 @@ index 0a42ff3..41f5258 100644
  		if (!((asid += ASID_INC) & ASID_MASK) ) {
  			if (cpu_has_vtag_icache)
  				flush_icache_all();
-diff --git a/arch/mips/kernel/vpe.c b/arch/mips/kernel/vpe.c
-index bfa12a4..e338ba5 100644
---- a/arch/mips/kernel/vpe.c
-+++ b/arch/mips/kernel/vpe.c
-@@ -75,6 +75,58 @@ static struct kspd_notifications kspd_events;
- static int kspd_events_reqd;
- #endif
+diff -u -N -r linux-3.14.18.orig/arch/mips/kernel/vpe.c linux-3.14.18/arch/mips/kernel/vpe.c
+--- linux-3.14.18.orig/arch/mips/kernel/vpe.c	2014-10-10 17:14:00.000000000 +0200
++++ linux-3.14.18/arch/mips/kernel/vpe.c	2014-10-10 23:04:10.000000000 +0200
+@@ -129,6 +129,189 @@
+ 	return tc;
+ }
  
 +#ifdef CONFIG_IFX_VPE_EXT
 +static int is_sdepgm;
@@ -866,16 +836,16 @@ index bfa12a4..e338ba5 100644
 +
 +static int __init load_address(char *str)
 +{
-+	get_option(&str, &vpe1_load_addr);
-+	return 1;
++        get_option(&str, &vpe1_load_addr);
++        return 1;
 +}
 +__setup("vpe1_load_addr=", load_address);
 +
 +#include <asm/mipsmtregs.h>
-+#define write_vpe_c0_wired(val)		mttc0(6, 0, val)
++#define write_vpe_c0_wired(val)         mttc0(6, 0, val)
 +
 +#ifndef COMMAND_LINE_SIZE
-+#	define COMMAND_LINE_SIZE	512
++#       define COMMAND_LINE_SIZE        512
 +#endif
 +
 +char command_line[COMMAND_LINE_SIZE * 2];
@@ -883,16 +853,16 @@ index bfa12a4..e338ba5 100644
 +static unsigned int vpe1_mem;
 +static int __init vpe1mem(char *str)
 +{
-+	vpe1_mem = memparse(str, &str);
-+	return 1;
++        vpe1_mem = memparse(str, &str);
++        return 1;
 +}
 +__setup("vpe1_mem=", vpe1mem);
 +
 +uint32_t vpe1_wdog_ctr;
 +static int __init wdog_ctr(char *str)
 +{
-+	get_option(&str, &vpe1_wdog_ctr);
-+	return 1;
++        get_option(&str, &vpe1_wdog_ctr);
++        return 1;
 +}
 +
 +__setup("vpe1_wdog_ctr_addr=", wdog_ctr);
@@ -909,10 +879,141 @@ index bfa12a4..e338ba5 100644
 +EXPORT_SYMBOL(vpe1_wdog_timeout);
 +
 +#endif
- /* grab the likely amount of memory we will need. */
- #ifdef CONFIG_MIPS_VPE_LOADER_TOM
- #define P_SIZE (2 * 1024 * 1024)
-@@ -267,6 +319,13 @@ static void *alloc_progmem(unsigned long len)
++
++#ifdef CONFIG_IFX_VPE_EXT
++int vpe_stop(void *vpe);
++int32_t vpe1_sw_start(void* sw_start_addr, uint32_t tcmask, uint32_t flags)
++{
++        enum vpe_state state;
++        struct vpe *v = get_vpe(tclimit);
++        struct vpe_notifications *not;
++
++        if (tcmask || flags) {
++                printk(KERN_WARNING "Currently tcmask and flags should be 0.\
++                                other values not supported\n");
++                return -1;
++        }
++
++        state = xchg(&v->state, VPE_STATE_INUSE);
++        if (state != VPE_STATE_UNUSED) {
++                vpe_stop(v);
++
++                list_for_each_entry(not, &v->notify, list) {
++                        not->stop(tclimit);
++                }
++        }
++
++        v->__start = (unsigned long)sw_start_addr;
++        is_sdepgm = 0;
++
++        if (!vpe_run(v)) {
++                printk(KERN_DEBUG "VPE loader: VPE1 running successfully\n");
++                return 0;
++        }
++        return -1;
++}
++
++EXPORT_SYMBOL(vpe1_sw_start);
++
++int vpe_free(void *vpe);
++int32_t vpe1_sw_stop(uint32_t flags)
++{
++        struct vpe *v = get_vpe(tclimit);
++
++        if (!vpe_free(v)) {
++                printk(KERN_DEBUG "RP Stopped\n");
++                return 0;
++        }
++        else
++                return -1;
++}
++
++EXPORT_SYMBOL(vpe1_sw_stop);
++
++uint32_t vpe1_get_load_addr (uint32_t flags)
++{
++        return vpe1_load_addr;
++}
++
++EXPORT_SYMBOL(vpe1_get_load_addr);
++
++uint32_t vpe1_get_max_mem (uint32_t flags)
++{
++        if (!vpe1_mem)
++                return P_SIZE;
++        else
++                return vpe1_mem;
++}
++
++EXPORT_SYMBOL(vpe1_get_max_mem);
++
++void* vpe1_get_cmdline_argument(void)
++{
++        return saved_command_line;
++}
++
++EXPORT_SYMBOL(vpe1_get_cmdline_argument);
++
++int32_t vpe1_set_boot_param(char *field, char *value, char flags)
++{
++        char *ptr, string[64];
++        int start_off, end_off;
++        if (!field)
++                return -1;
++        strcpy(string, field);
++        if (value) {
++                strcat(string, "=");
++                strcat(string, value);
++                strcat(command_line, " ");
++                strcat(command_line, string);
++        }
++        else {
++                ptr = strstr(command_line, string);
++                if (ptr) {
++                        start_off = ptr - command_line;
++                        ptr += strlen(string);
++                        while ((*ptr != ' ') && (*ptr != '\0'))
++                                ptr++;
++                        end_off = ptr - command_line;
++                        command_line[start_off] = '\0';
++                        strcat (command_line, command_line+end_off);
++                }
++        }
++        return 0;
++}
++
++EXPORT_SYMBOL(vpe1_set_boot_param);
++
++int32_t vpe1_get_boot_param(char *field, char **value, char flags)
++{
++        char *ptr, string[64];
++        int i = 0;
++        if (!field)
++                return -1;
++        if ((ptr = strstr(command_line, field))) {
++                ptr += strlen(field) + 1; /* including = */
++                while ((*ptr != ' ') && (*ptr != '\0'))
++                        string[i++] = *ptr++;
++                string[i] = '\0';
++                *value = kmalloc((strlen(string) + 1), GFP_KERNEL);
++                if (*value != NULL)
++                        strcpy(*value, string);
++        }
++        else
++                *value = NULL;
++
++        return 0;
++}
++
++EXPORT_SYMBOL(vpe1_get_boot_param);
++
++extern void configure_tlb(void);
++#endif
++
+ /* clean up and free everything */
+ void release_vpe(struct vpe *v)
+ {
+@@ -144,6 +327,13 @@
  	void *addr;
  
  #ifdef CONFIG_MIPS_VPE_LOADER_TOM
@@ -926,22 +1027,9 @@ index bfa12a4..e338ba5 100644
  	/*
  	 * This means you must tell Linux to use less memory than you
  	 * physically have, for example by passing a mem= boot argument.
-@@ -745,6 +804,12 @@ static int vpe_run(struct vpe * v)
+@@ -381,6 +571,20 @@
+ 		mips_hi16_list = NULL;
  	}
- 
- 	/* Write the address we want it to start running from in the TCPC register. */
-+#if defined(CONFIG_IFX_VPE_EXT) && 0
-+	if (stlb)
-+		write_vpe_c0_wired(vpe0_wired + vpe1_wired);
-+	else
-+		write_vpe_c0_wired(vpe1_wired);
-+#endif
- 	write_tc_c0_tcrestart((unsigned long)v->__start);
- 	write_tc_c0_tccontext((unsigned long)0);
- 
-@@ -758,6 +823,20 @@ static int vpe_run(struct vpe * v)
- 
- 	write_tc_c0_tchalt(read_tc_c0_tchalt() & ~TCHALT_H);
  
 +#if defined(CONFIG_IFX_VPE_EXT) && 0
 +	/*
@@ -958,10 +1046,10 @@ index bfa12a4..e338ba5 100644
 +	if (is_sdepgm)
 +#endif
  	/*
- 	 * The sde-kit passes 'memsize' to __start in $a3, so set something
- 	 * here...  Or set $a3 to zero and define DFLT_STACK_SIZE and
-@@ -832,6 +911,9 @@ static int find_vpe_symbols(struct vpe * v, Elf_Shdr * sechdrs,
- 	if ( (v->__start == 0) || (v->shared_ptr == NULL))
+ 	 * Ok, we're done with the HI16 relocs.	 Now deal with the LO16.
+ 	 */
+@@ -565,6 +769,9 @@
+ 	if ((v->__start == 0) || (v->shared_ptr == NULL))
  		return -1;
  
 +#ifdef CONFIG_IFX_VPE_EXT
@@ -970,7 +1058,7 @@ index bfa12a4..e338ba5 100644
  	return 0;
  }
  
-@@ -993,6 +1075,15 @@ static int vpe_elfload(struct vpe * v)
+@@ -732,6 +939,15 @@
  			   (unsigned long)v->load_addr + v->len);
  
  	if ((find_vpe_symbols(v, sechdrs, symindex, strtab, &mod)) < 0) {
@@ -984,21 +1072,21 @@ index bfa12a4..e338ba5 100644
 +#endif
 +
  		if (v->__start == 0) {
- 			printk(KERN_WARNING "VPE loader: program does not contain "
- 			       "a __start symbol\n");
-@@ -1063,6 +1154,9 @@ static int vpe_open(struct inode *inode, struct file *filp)
- 	struct vpe_notifications *not;
+ 			pr_warn("VPE loader: program does not contain a __start symbol\n");
+ 			return -ENOEXEC;
+@@ -768,6 +984,9 @@
+ 	struct vpe_notifications *notifier;
  	struct vpe *v;
  	int ret;
 +#ifdef CONFIG_IFX_VPE_EXT
 +   int progsize;
 +#endif
  
- 	if (minor != iminor(inode)) {
+ 	if (VPE_MODULE_MINOR != iminor(inode)) {
  		/* assume only 1 device at the moment. */
-@@ -1088,7 +1182,12 @@ static int vpe_open(struct inode *inode, struct file *filp)
+@@ -793,7 +1012,12 @@
  		release_progmem(v->load_addr);
- 		cleanup_tc(get_tc(tclimit));
+ 		cleanup_tc(get_tc(aprp_cpu_index()));
  	}
 -
 +#ifdef CONFIG_IFX_VPE_EXT
@@ -1010,158 +1098,17 @@ index bfa12a4..e338ba5 100644
  	/* this of-course trashes what was there before... */
  	v->pbuffer = vmalloc(P_SIZE);
  	if (!v->pbuffer) {
-@@ -1096,11 +1195,14 @@ static int vpe_open(struct inode *inode, struct file *filp)
- 		return -ENOMEM;
- 	}
+@@ -803,6 +1027,7 @@
  	v->plen = P_SIZE;
-+#endif
  	v->load_addr = NULL;
  	v->len = 0;
- 
-+#if 0
- 	v->uid = filp->f_cred->fsuid;
- 	v->gid = filp->f_cred->fsgid;
 +#endif
  
- #ifdef CONFIG_MIPS_APSP_KSPD
- 	/* get kspd to tell us when a syscall_exit happens */
-@@ -1348,6 +1450,133 @@ static void kspd_sp_exit( int sp_id)
- 	cleanup_tc(get_tc(sp_id));
- }
- #endif
-+#ifdef CONFIG_IFX_VPE_EXT
-+int32_t vpe1_sw_start(void* sw_start_addr, uint32_t tcmask, uint32_t flags)
-+{
-+	enum vpe_state state;
-+	struct vpe *v = get_vpe(tclimit);
-+	struct vpe_notifications *not;
-+
-+	if (tcmask || flags) {
-+		printk(KERN_WARNING "Currently tcmask and flags should be 0.\
-+				other values not supported\n");
-+		return -1;
-+	}
-+
-+	state = xchg(&v->state, VPE_STATE_INUSE);
-+	if (state != VPE_STATE_UNUSED) {
-+		vpe_stop(v);
-+
-+		list_for_each_entry(not, &v->notify, list) {
-+			not->stop(tclimit);
-+		}
-+	}
-+
-+	v->__start = (unsigned long)sw_start_addr;
-+	is_sdepgm = 0;
-+
-+	if (!vpe_run(v)) {
-+		printk(KERN_DEBUG "VPE loader: VPE1 running successfully\n");
-+		return 0;
-+	}
-+	return -1;
-+}
-+
-+EXPORT_SYMBOL(vpe1_sw_start);
-+
-+int32_t vpe1_sw_stop(uint32_t flags)
-+{
-+	struct vpe *v = get_vpe(tclimit);
-+
-+	if (!vpe_free(v)) {
-+		printk(KERN_DEBUG "RP Stopped\n");
-+		return 0;
-+	}
-+	else
-+		return -1;
-+}
-+
-+EXPORT_SYMBOL(vpe1_sw_stop);
-+
-+uint32_t vpe1_get_load_addr (uint32_t flags)
-+{
-+	return vpe1_load_addr;
-+}
-+
-+EXPORT_SYMBOL(vpe1_get_load_addr);
-+
-+uint32_t vpe1_get_max_mem (uint32_t flags)
-+{
-+	if (!vpe1_mem)
-+		return P_SIZE;
-+	else
-+		return vpe1_mem;
-+}
-+
-+EXPORT_SYMBOL(vpe1_get_max_mem);
-+
-+void* vpe1_get_cmdline_argument(void)
-+{
-+	return saved_command_line;
-+}
-+
-+EXPORT_SYMBOL(vpe1_get_cmdline_argument);
-+
-+int32_t vpe1_set_boot_param(char *field, char *value, char flags)
-+{
-+	char *ptr, string[64];
-+	int start_off, end_off;
-+	if (!field)
-+		return -1;
-+	strcpy(string, field);
-+	if (value) {
-+		strcat(string, "=");
-+		strcat(string, value);
-+		strcat(command_line, " ");
-+		strcat(command_line, string);
-+	}
-+	else {
-+		ptr = strstr(command_line, string);
-+		if (ptr) {
-+			start_off = ptr - command_line;
-+			ptr += strlen(string);
-+			while ((*ptr != ' ') && (*ptr != '\0'))
-+				ptr++;
-+			end_off = ptr - command_line;
-+			command_line[start_off] = '\0';
-+			strcat (command_line, command_line+end_off);
-+		}
-+	}
-+	return 0;
-+}
-+
-+EXPORT_SYMBOL(vpe1_set_boot_param);
-+
-+int32_t vpe1_get_boot_param(char *field, char **value, char flags)
-+{
-+	char *ptr, string[64];
-+	int i = 0;
-+	if (!field)
-+		return -1;
-+	if ((ptr = strstr(command_line, field))) {
-+		ptr += strlen(field) + 1; /* including = */
-+		while ((*ptr != ' ') && (*ptr != '\0'))
-+			string[i++] = *ptr++;
-+		string[i] = '\0';
-+		*value = kmalloc((strlen(string) + 1), GFP_KERNEL);
-+		if (*value != NULL)
-+			strcpy(*value, string);
-+	}
-+	else
-+		*value = NULL;
-+
-+	return 0;
-+}
-+
-+EXPORT_SYMBOL(vpe1_get_boot_param);
-+
-+extern void configure_tlb(void);
-+#endif
- 
- static ssize_t store_kill(struct device *dev, struct device_attribute *attr,
- 			  const char *buf, size_t len)
-@@ -1429,6 +1658,18 @@ static int __init vpe_module_init(void)
- 		printk("VPE loader: not a MIPS MT capable processor\n");
- 		return -ENODEV;
+ 	v->cwd[0] = 0;
+ 	ret = getcwd(v->cwd, VPE_PATH_MAX);
+@@ -870,6 +1095,18 @@
+ 		pr_warn("VPE loader: elf size too big. Perhaps strip uneeded symbols\n");
+ 		return -ENOMEM;
  	}
 +#ifdef CONFIG_IFX_VPE_EXT
 +#ifndef CONFIG_MIPS_MT_SMTC
@@ -1176,23 +1123,35 @@ index bfa12a4..e338ba5 100644
 +		tclimit = 1;
 +#endif
  
- 	if (vpelimit == 0) {
- 		printk(KERN_WARNING "No VPEs reserved for AP/SP, not "
-@@ -1473,10 +1714,12 @@ static int __init vpe_module_init(void)
+ 	count -= copy_from_user(v->pbuffer + v->len, buffer, count);
+ 	if (!count)
+diff -u -N -r linux-3.14.18.orig/arch/mips/kernel/vpe-mt.c linux-3.14.18/arch/mips/kernel/vpe-mt.c
+--- linux-3.14.18.orig/arch/mips/kernel/vpe-mt.c	2014-09-06 01:34:59.000000000 +0200
++++ linux-3.14.18/arch/mips/kernel/vpe-mt.c	2014-10-10 23:03:45.000000000 +0200
+@@ -78,6 +78,12 @@
+ 	 * Write the address we want it to start running from in the TCPC
+ 	 * register.
+ 	 */
++#if defined(CONFIG_IFX_VPE_EXT) && 0
++	if (stlb)
++		write_vpe_c0_wired(vpe0_wired + vpe1_wired);
++	else
++		write_vpe_c0_wired(vpe1_wired);
++#endif
+ 	write_tc_c0_tcrestart((unsigned long)v->__start);
+ 	write_tc_c0_tccontext((unsigned long)0);
+ 
+@@ -154,6 +160,9 @@
+ 	local_irq_save(flags);
  	mtflags = dmt();
  	vpflags = dvpe();
- 
++
 +	back_to_back_c0_hazard();
 +
  	/* Put MVPE's into 'configuration state' */
  	set_c0_mvpcontrol(MVPCONTROL_VPC);
  
--	/* dump_mtregs(); */
-+	dump_mtregs();
- 
- 	val = read_c0_mvpconf0();
- 	hw_tcs = (val & MVPCONF0_PTC) + 1;
-@@ -1488,6 +1731,7 @@ static int __init vpe_module_init(void)
+@@ -393,6 +402,7 @@
  		 * reschedule send IPIs or similar we might hang.
  		 */
  		clear_c0_mvpcontrol(MVPCONTROL_VPC);
@@ -1200,15 +1159,16 @@ index bfa12a4..e338ba5 100644
  		evpe(vpflags);
  		emt(mtflags);
  		local_irq_restore(flags);
-@@ -1513,6 +1757,7 @@ static int __init vpe_module_init(void)
- 			}
+@@ -419,6 +429,8 @@
  
- 			v->ntcs = hw_tcs - tclimit;
-+                        write_tc_c0_tcbind((read_tc_c0_tcbind() & ~TCBIND_CURVPE) | 1);
+ 			v->ntcs = hw_tcs - aprp_cpu_index();
  
++			write_tc_c0_tcbind((read_tc_c0_tcbind() & ~TCBIND_CURVPE) | 1);
++
  			/* add the tc to the list of this vpe's tc's. */
  			list_add(&t->tc, &v->tc);
-@@ -1581,6 +1826,7 @@ static int __init vpe_module_init(void)
+ 
+@@ -488,6 +500,7 @@
  out_reenable:
  	/* release config state */
  	clear_c0_mvpcontrol(MVPCONTROL_VPC);
@@ -1216,6 +1176,55 @@ index bfa12a4..e338ba5 100644
  
  	evpe(vpflags);
  	emt(mtflags);
--- 
-1.7.9.1
-
+diff -u -N -r linux-3.14.18.orig/arch/mips/lantiq/prom.c linux-3.14.18/arch/mips/lantiq/prom.c
+--- linux-3.14.18.orig/arch/mips/lantiq/prom.c	2014-10-10 17:13:58.000000000 +0200
++++ linux-3.14.18/arch/mips/lantiq/prom.c	2014-10-10 23:21:41.000000000 +0200
+@@ -31,6 +31,10 @@
+  */
+ static struct ltq_soc_info soc_info;
+ 
++/* for Multithreading (APRP), vpe.c will use it */
++unsigned long physical_memsize = 0;
++unsigned long cp0_memsize = 0;
++
+ const char *get_system_type(void)
+ {
+ 	return soc_info.sys_type;
+@@ -61,6 +65,37 @@
+ 			strlcat(arcs_cmdline, " ", sizeof(arcs_cmdline));
+ 		}
+ 	}
++
++	if ( (scr = strstr(arcs_cmdline, "mem=")) )
++	{                                             
++	    scr += 4;                                 
++	    memsz = 0;                                
++	    while ( *scr >= '0' && *scr <= '9' )      
++	    {                                         
++	        memsz = memsz * 10 + *scr - '0';      
++	        scr++;                                
++	    }                                         
++	    if ( *scr == 'm' || *scr == 'M' )         
++	        memsz *= 1024 * 1024;                 
++	    else if ( *scr == 'k' || *scr == 'K' )    
++	        memsz *= 1024;                        
++	    cp0_memsize = memsz;                      
++	}
++
++    /* now handle envp */                                                           
++    if (envp != (char **)KSEG1ADDR(0)) {                                            
++        /* assume for now that exactly 3 values get passed */                       
++        while (*envp) {                                                             
++            *envp = (char *)KSEG1ADDR(*envp);                                       
++            /* check for memsize */                                                 
++            if (physical_memsize == 0 && strncmp(*envp, "memsize=", 8) == 0) {      
++                scr = *envp + 8;                                                    
++                memsz = (int)simple_strtoul(scr, NULL, 0);                          
++                physical_memsize = memsz * 1024 * 1024;                             
++	    }
++	}
++    }
++
+ }
+ 
+ extern struct boot_param_header __image_dtb;
