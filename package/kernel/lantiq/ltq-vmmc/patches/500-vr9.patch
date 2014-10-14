@@ -1,0 +1,144 @@
+diff -u -N -r drv_vmmc-1.9.0.orig/src/mps/drv_mps_vmmc_ar9.c drv_vmmc-1.9.0/src/mps/drv_mps_vmmc_ar9.c
+--- drv_vmmc-1.9.0.orig/src/mps/drv_mps_vmmc_ar9.c	2010-03-08 14:08:30.000000000 +0100
++++ drv_vmmc-1.9.0/src/mps/drv_mps_vmmc_ar9.c	2014-10-13 10:16:34.000000000 +0200
+@@ -30,15 +30,26 @@
+ #include "ifxos_interrupt.h"
+ 
+ /* board specific headers */
++#if !defined CONFIG_LANTIQ
+ #include <asm/ifx/ifx_regs.h>
+ #include <asm/ifx_vpe.h>
+ #include <asm/ifx/ifx_gpio.h>
++#endif
++
++#include <falcon/vpe.h>
++
+ 
+ /* device specific headers */
+ #include "drv_mps_vmmc.h"
+ #include "drv_mps_vmmc_dbg.h"
+ #include "drv_mps_vmmc_device.h"
+ 
++//void (*ifx_bsp_basic_mps_decrypt)(unsigned int addr, int n) = (void (*)(unsigned int, int))0xbf000290;
++// if (  ifx_is_vr9_a21_chip() )
++void (*ifx_bsp_basic_mps_decrypt)(unsigned int addr, int n) = (void (*)(unsigned int, int))0xbf001f38;
++
++#define IFX_MPS_SRAM IFXMIPS_MPS_SRAM
++
+ /* ============================= */
+ /* Local Macros & Definitions    */
+ /* ============================= */
+@@ -454,62 +465,62 @@
+ #endif /* DEBUG */
+ 
+    /* reset SmartSLIC */
+-   IFXOS_LOCKINT (flags);
+-   if (ifx_gpio_pin_reserve
+-       (IFX_GPIO_PIN_ID (SSLIC_RST_PORT, SSLIC_RST_PIN), IFX_MPS_MODULE_ID))
+-   {
+-      TRACE (MPS, DBG_LEVEL_HIGH,
+-             (KERN_ERR "[%s %s %d]: GPIO port/pin reservation error.\r\n",
+-              __FILE__, __func__, __LINE__));
+-   }
++//   IFXOS_LOCKINT (flags);
++//   if (ifx_gpio_pin_reserve
++//       (IFX_GPIO_PIN_ID (SSLIC_RST_PORT, SSLIC_RST_PIN), IFX_MPS_MODULE_ID))
++//   {
++//      TRACE (MPS, DBG_LEVEL_HIGH,
++//             (KERN_ERR "[%s %s %d]: GPIO port/pin reservation error.\r\n",
++//              __FILE__, __func__, __LINE__));
++//   }
+    /* P1_ALTSEL0.15 = 0 */
+-   if (ifx_gpio_altsel0_clear
+-       (IFX_GPIO_PIN_ID (SSLIC_RST_PORT, SSLIC_RST_PIN), IFX_MPS_MODULE_ID))
+-   {
+-      TRACE (MPS, DBG_LEVEL_HIGH,
+-             (KERN_ERR "[%s %s %d]: GPIO error clearing ALTSEL0.\r\n", __FILE__,
+-              __func__, __LINE__));
+-   }
++//   if (ifx_gpio_altsel0_clear
++//       (IFX_GPIO_PIN_ID (SSLIC_RST_PORT, SSLIC_RST_PIN), IFX_MPS_MODULE_ID))
++//   {
++//      TRACE (MPS, DBG_LEVEL_HIGH,
++//             (KERN_ERR "[%s %s %d]: GPIO error clearing ALTSEL0.\r\n", __FILE__,
++//              __func__, __LINE__));
++//   }
+    /* P1_ALTSEL1.15 = 0 */
+-   if (ifx_gpio_altsel1_clear
+-       (IFX_GPIO_PIN_ID (SSLIC_RST_PORT, SSLIC_RST_PIN), IFX_MPS_MODULE_ID))
+-   {
+-      TRACE (MPS, DBG_LEVEL_HIGH,
+-             (KERN_ERR "[%s %s %d]: GPIO error clearing ALTSEL1.\r\n", __FILE__,
+-              __func__, __LINE__));
+-   }
++//   if (ifx_gpio_altsel1_clear
++//       (IFX_GPIO_PIN_ID (SSLIC_RST_PORT, SSLIC_RST_PIN), IFX_MPS_MODULE_ID))
++//   {
++//      TRACE (MPS, DBG_LEVEL_HIGH,
++//             (KERN_ERR "[%s %s %d]: GPIO error clearing ALTSEL1.\r\n", __FILE__,
++//              __func__, __LINE__));
++//   }
+    /* P1_DIR.15 = 1 */
+-   if (ifx_gpio_dir_out_set
+-       (IFX_GPIO_PIN_ID (SSLIC_RST_PORT, SSLIC_RST_PIN), IFX_MPS_MODULE_ID))
+-   {
+-      TRACE (MPS, DBG_LEVEL_HIGH,
+-             (KERN_ERR "[%s %s %d]: GPIO error setting DIR.\r\n", __FILE__,
+-              __func__, __LINE__));
+-   }
++//   if (ifx_gpio_dir_out_set
++//       (IFX_GPIO_PIN_ID (SSLIC_RST_PORT, SSLIC_RST_PIN), IFX_MPS_MODULE_ID))
++//   {
++//      TRACE (MPS, DBG_LEVEL_HIGH,
++//             (KERN_ERR "[%s %s %d]: GPIO error setting DIR.\r\n", __FILE__,
++//              __func__, __LINE__));
++//   }
+    /* P1_OD.15 = 1 */
+-   if (ifx_gpio_open_drain_set
+-       (IFX_GPIO_PIN_ID (SSLIC_RST_PORT, SSLIC_RST_PIN), IFX_MPS_MODULE_ID))
+-   {
+-      TRACE (MPS, DBG_LEVEL_HIGH,
+-             (KERN_ERR "[%s %s %d]: GPIO error setting OD.\r\n", __FILE__,
+-              __func__, __LINE__));
+-   }
++//   if (ifx_gpio_open_drain_set
++//       (IFX_GPIO_PIN_ID (SSLIC_RST_PORT, SSLIC_RST_PIN), IFX_MPS_MODULE_ID))
++//   {
++//      TRACE (MPS, DBG_LEVEL_HIGH,
++//             (KERN_ERR "[%s %s %d]: GPIO error setting OD.\r\n", __FILE__,
++//              __func__, __LINE__));
++//   }
+    /* P1_OUT.15 = 0 */
+-   if (ifx_gpio_output_clear
+-       (IFX_GPIO_PIN_ID (SSLIC_RST_PORT, SSLIC_RST_PIN), IFX_MPS_MODULE_ID))
+-   {
+-      TRACE (MPS, DBG_LEVEL_HIGH,
+-             (KERN_ERR "[%s %s %d]: GPIO error clearing OUT.\r\n", __FILE__,
+-              __func__, __LINE__));
+-   }
+-   if (ifx_gpio_pin_free
+-       (IFX_GPIO_PIN_ID (SSLIC_RST_PORT, SSLIC_RST_PIN), IFX_MPS_MODULE_ID))
+-   {
+-      TRACE (MPS, DBG_LEVEL_HIGH,
+-             (KERN_ERR "[%s %s %d]: GPIO port/pin freeing error.\r\n", __FILE__,
+-              __func__, __LINE__));
+-   }
+-   IFXOS_UNLOCKINT (flags);
++//   if (ifx_gpio_output_clear
++//       (IFX_GPIO_PIN_ID (SSLIC_RST_PORT, SSLIC_RST_PIN), IFX_MPS_MODULE_ID))
++//   {
++//      TRACE (MPS, DBG_LEVEL_HIGH,
++//             (KERN_ERR "[%s %s %d]: GPIO error clearing OUT.\r\n", __FILE__,
++//              __func__, __LINE__));
++//   }
++//   if (ifx_gpio_pin_free
++//       (IFX_GPIO_PIN_ID (SSLIC_RST_PORT, SSLIC_RST_PIN), IFX_MPS_MODULE_ID))
++//   {
++//      TRACE (MPS, DBG_LEVEL_HIGH,
++//             (KERN_ERR "[%s %s %d]: GPIO port/pin freeing error.\r\n", __FILE__,
++//              __func__, __LINE__));
++//   }
++//   IFXOS_UNLOCKINT (flags);
+ 
+    /* recalculate and compare the firmware checksum */
+    ifx_mps_fw_crc_compare(cpu1_base_addr, pFW_img_data);
