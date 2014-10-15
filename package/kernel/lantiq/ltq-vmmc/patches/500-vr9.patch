@@ -1,7 +1,7 @@
-diff -u -N -r drv_vmmc-1.9.0.orig/src/mps/drv_mps_vmmc_ar9.c drv_vmmc-1.9.0/src/mps/drv_mps_vmmc_ar9.c
---- drv_vmmc-1.9.0.orig/src/mps/drv_mps_vmmc_ar9.c	2010-03-08 14:08:30.000000000 +0100
-+++ drv_vmmc-1.9.0/src/mps/drv_mps_vmmc_ar9.c	2014-10-13 10:16:34.000000000 +0200
-@@ -30,15 +30,26 @@
+diff -u -N -r drv_vmmc-1.9.0/src/mps/drv_mps_vmmc_ar9.c drv_vmmc-1.9.0_2/src/mps/drv_mps_vmmc_ar9.c
+--- drv_vmmc-1.9.0/src/mps/drv_mps_vmmc_ar9.c	2010-03-08 14:08:30.000000000 +0100
++++ drv_vmmc-1.9.0_2/src/mps/drv_mps_vmmc_ar9.c	2014-10-14 21:49:20.000000000 +0200
+@@ -30,15 +30,25 @@
  #include "ifxos_interrupt.h"
  
  /* board specific headers */
@@ -19,16 +19,54 @@ diff -u -N -r drv_vmmc-1.9.0.orig/src/mps/drv_mps_vmmc_ar9.c drv_vmmc-1.9.0/src/
  #include "drv_mps_vmmc_dbg.h"
  #include "drv_mps_vmmc_device.h"
  
-+//void (*ifx_bsp_basic_mps_decrypt)(unsigned int addr, int n) = (void (*)(unsigned int, int))0xbf000290;
-+// if (  ifx_is_vr9_a21_chip() )
-+void (*ifx_bsp_basic_mps_decrypt)(unsigned int addr, int n) = (void (*)(unsigned int, int))0xbf001f38;
++void (*ifx_bsp_basic_mps_decrypt)(unsigned int addr, int n) = (const void (*)(unsigned int, int))0xbf001ea4;    
++void (*ifx_bsp_basic_mps_decrypt_vr9_a21)(unsigned int addr, int n) = (void (*)(unsigned int, int))0xbf001f38;
 +
 +#define IFX_MPS_SRAM IFXMIPS_MPS_SRAM
 +
  /* ============================= */
  /* Local Macros & Definitions    */
  /* ============================= */
-@@ -454,62 +465,62 @@
+@@ -292,7 +302,11 @@
+          decryption. Subtract sizeof(u32) from length to avoid decryption
+          of data beyond the FW image code */
+       pFWDwnld->length -= sizeof(IFX_uint32_t);
++	printk(KERN_INFO "I'm here 8a\n");
+       ifx_bsp_basic_mps_decrypt((IFX_uint32_t)cpu1_base_addr, pFWDwnld->length);
++     // ifx_bsp_basic_mps_decrypt_vr9_a21((IFX_uint32_t)cpu1_base_addr, pFWDwnld->length);
++	//ifx_bsp_basic_mps_decrypt((unsigned int)cpu1_base_addr, pFWDwnld->length);
++	printk(KERN_INFO "I'm here 8b\n");
+    }
+ 
+    /* calculate CRC32 checksum over downloaded image */
+@@ -306,7 +320,7 @@
+          TRACE (MPS, DBG_LEVEL_HIGH,
+                 ("MPS: FW checksum error: img=0x%08x calc=0x%08x\r\n",
+                 pFW_img_data->crc32, cksum));
+-         return IFX_ERROR;
++         /* return IFX_ERROR; -- FIXME: ignore chksum like someone done on falcon*/ 
+       }
+    }
+    else
+@@ -315,12 +329,17 @@
+       pFW_img_data->crc32 = cksum;
+    }
+ 
++   printk(KERN_INFO "eddi I'm here 9 - mps release\n");
+    /* start VPE1 */
+    ifx_mps_release ();
++   printk(KERN_INFO "eddi I'm here 9 - mps release done\n");
+ 
++   printk(KERN_INFO "eddi I'm here 10 - start wdog\n");
+    /* start FW watchdog mechanism */
+    ifx_mps_fw_wdog_start_ar9();
++   printk(KERN_INFO "eddi I'm here 10 - start wdog done\n");
+ 
++   printk(KERN_INFO "eddi I'm here 11 - return version and exit\n");
+    /* get FW version */
+    return ifx_mps_get_fw_version (0);
+ }
+@@ -454,62 +473,62 @@
  #endif /* DEBUG */
  
     /* reset SmartSLIC */
