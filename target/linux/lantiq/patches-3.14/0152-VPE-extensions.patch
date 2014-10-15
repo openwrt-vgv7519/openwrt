@@ -803,6 +803,23 @@ diff -u -N -r linux-3.14.18.orig/arch/mips/kernel/proc.c linux-3.14.18/arch/mips
 +               mips_proc = proc_mkdir("mips", NULL);
 +       return(mips_proc);
 +}
+diff -u -N -r linux-3.14.18.orig/arch/mips/kernel/prom.c linux-3.14.18/arch/mips/kernel/prom.c
+--- linux-3.14.18.orig/arch/mips/kernel/prom.c	2014-09-06 01:34:59.000000000 +0200
++++ linux-3.14.18/arch/mips/kernel/prom.c	2014-10-11 16:07:09.000000000 +0200
+@@ -36,10 +36,13 @@
+ 	return mips_machine_name;
+ }
+ 
++unsigned long physical_memsize = 0L;
++
+ #ifdef CONFIG_OF
+ void __init early_init_dt_add_memory_arch(u64 base, u64 size)
+ {
+ 	return add_memory_region(base, size, BOOT_MEM_RAM);
++	physical_memsize = size;
+ }
+ 
+ void * __init early_init_dt_alloc_memory_arch(u64 size, u64 align)
 diff -u -N -r linux-3.14.18.orig/arch/mips/kernel/smtc.c linux-3.14.18/arch/mips/kernel/smtc.c
 --- linux-3.14.18.orig/arch/mips/kernel/smtc.c	2014-10-10 17:14:00.000000000 +0200
 +++ linux-3.14.18/arch/mips/kernel/smtc.c	2014-10-10 18:05:15.000000000 +0200
@@ -1125,9 +1142,143 @@ diff -u -N -r linux-3.14.18.orig/arch/mips/kernel/vpe.c linux-3.14.18/arch/mips/
  
  	count -= copy_from_user(v->pbuffer + v->len, buffer, count);
  	if (!count)
+diff -u -N -r linux-3.14.18.orig/arch/mips/kernel/vpe.h linux-3.14.18/arch/mips/kernel/vpe.h
+--- linux-3.14.18.orig/arch/mips/kernel/vpe.h	1970-01-01 01:00:00.000000000 +0100
++++ linux-3.14.18/arch/mips/kernel/vpe.h	2014-10-10 22:55:55.000000000 +0200
+@@ -0,0 +1,130 @@
++/*
++ * This file is subject to the terms and conditions of the GNU General Public
++ * License.  See the file "COPYING" in the main directory of this archive
++ * for more details.
++ *
++ * Copyright (C) 2005 MIPS Technologies, Inc.  All rights reserved.
++ * Copyright (C) 2013 Imagination Technologies Ltd.
++ */
++#ifndef _ASM_VPE_H
++#define _ASM_VPE_H
++
++#include <linux/init.h>
++#include <linux/list.h>
++#include <linux/smp.h>
++#include <linux/spinlock.h>
++
++#define VPE_MODULE_NAME "vpe"
++#define VPE_MODULE_MINOR 1
++
++/* grab the likely amount of memory we will need. */
++#ifdef CONFIG_MIPS_VPE_LOADER_TOM
++#define P_SIZE (2 * 1024 * 1024)
++#else
++/* add an overhead to the max kmalloc size for non-striped symbols/etc */
++#define P_SIZE (256 * 1024)
++#endif
++
++#define MAX_VPES 16
++#define VPE_PATH_MAX 256
++
++static inline int aprp_cpu_index(void)
++{
++#ifdef CONFIG_MIPS_CMP
++	return setup_max_cpus;
++#else
++	extern int tclimit;
++	return tclimit;
++#endif
++}
++
++enum vpe_state {
++	VPE_STATE_UNUSED = 0,
++	VPE_STATE_INUSE,
++	VPE_STATE_RUNNING
++};
++
++enum tc_state {
++	TC_STATE_UNUSED = 0,
++	TC_STATE_INUSE,
++	TC_STATE_RUNNING,
++	TC_STATE_DYNAMIC
++};
++
++struct vpe {
++	enum vpe_state state;
++
++	/* (device) minor associated with this vpe */
++	int minor;
++
++	/* elfloader stuff */
++	void *load_addr;
++	unsigned long len;
++	char *pbuffer;
++	unsigned long plen;
++	char cwd[VPE_PATH_MAX];
++
++	unsigned long __start;
++
++	/* tc's associated with this vpe */
++	struct list_head tc;
++
++	/* The list of vpe's */
++	struct list_head list;
++
++	/* shared symbol address */
++	void *shared_ptr;
++
++	/* the list of who wants to know when something major happens */
++	struct list_head notify;
++
++	unsigned int ntcs;
++};
++
++struct tc {
++	enum tc_state state;
++	int index;
++
++	struct vpe *pvpe;	/* parent VPE */
++	struct list_head tc;	/* The list of TC's with this VPE */
++	struct list_head list;	/* The global list of tc's */
++};
++
++struct vpe_notifications {
++	void (*start)(int vpe);
++	void (*stop)(int vpe);
++
++	struct list_head list;
++};
++
++struct vpe_control {
++	spinlock_t vpe_list_lock;
++	struct list_head vpe_list;      /* Virtual processing elements */
++	spinlock_t tc_list_lock;
++	struct list_head tc_list;       /* Thread contexts */
++};
++
++extern unsigned long physical_memsize;
++extern struct vpe_control vpecontrol;
++extern const struct file_operations vpe_fops;
++
++int vpe_notify(int index, struct vpe_notifications *notify);
++
++void *vpe_get_shared(int index);
++char *vpe_getcwd(int index);
++
++struct vpe *get_vpe(int minor);
++struct tc *get_tc(int index);
++struct vpe *alloc_vpe(int minor);
++struct tc *alloc_tc(int index);
++void release_vpe(struct vpe *v);
++
++void *alloc_progmem(unsigned long len);
++void release_progmem(void *ptr);
++
++int __weak vpe_run(struct vpe *v);
++void cleanup_tc(struct tc *tc);
++
++int __init vpe_module_init(void);
++void __exit vpe_module_exit(void);
++#endif /* _ASM_VPE_H */
 diff -u -N -r linux-3.14.18.orig/arch/mips/kernel/vpe-mt.c linux-3.14.18/arch/mips/kernel/vpe-mt.c
 --- linux-3.14.18.orig/arch/mips/kernel/vpe-mt.c	2014-09-06 01:34:59.000000000 +0200
-+++ linux-3.14.18/arch/mips/kernel/vpe-mt.c	2014-10-10 23:03:45.000000000 +0200
++++ linux-3.14.18/arch/mips/kernel/vpe-mt.c	2014-10-15 09:52:08.000000000 +0200
 @@ -78,6 +78,12 @@
  	 * Write the address we want it to start running from in the TCPC
  	 * register.
@@ -1151,15 +1302,39 @@ diff -u -N -r linux-3.14.18.orig/arch/mips/kernel/vpe-mt.c linux-3.14.18/arch/mi
  	/* Put MVPE's into 'configuration state' */
  	set_c0_mvpcontrol(MVPCONTROL_VPC);
  
-@@ -393,6 +402,7 @@
- 		 * reschedule send IPIs or similar we might hang.
- 		 */
- 		clear_c0_mvpcontrol(MVPCONTROL_VPC);
-+		back_to_back_c0_hazard();
- 		evpe(vpflags);
- 		emt(mtflags);
- 		local_irq_restore(flags);
-@@ -419,6 +429,8 @@
+@@ -339,7 +348,19 @@
+ 		return -ENODEV;
+ 	}
+ 
+-	if (vpelimit == 0) {
++#ifdef CONFIG_IFX_VPE_EXT
++       val = read_c0_mvpconf0();
++
++        hw_tcs = (val & MVPCONF0_PTC) + 1;
++        hw_vpes = ((val & MVPCONF0_PVPE) >> MVPCONF0_PVPE_SHIFT) + 1;
++
++#endif
++
++	if (vpelimit == 0
++#ifdef CONFIG_IFX_VPE_EXT
++	|| (vpelimit >= hw_vpes)
++#endif
++) {
+ 		pr_warn("No VPEs reserved for AP/SP, not initialize VPE loader\n"
+ 			"Pass maxvpes=<n> argument as kernel argument\n");
+ 
+@@ -380,6 +401,10 @@
+ 	mtflags = dmt();
+ 	vpflags = dvpe();
+ 
++#ifdef CONFIG_IFX_VPE_EXT
++	back_to_back_c0_hazard();
++#endif
++
+ 	/* Put MVPE's into 'configuration state' */
+ 	set_c0_mvpcontrol(MVPCONTROL_VPC);
+ 
+@@ -419,6 +444,8 @@
  
  			v->ntcs = hw_tcs - aprp_cpu_index();
  
@@ -1168,17 +1343,19 @@ diff -u -N -r linux-3.14.18.orig/arch/mips/kernel/vpe-mt.c linux-3.14.18/arch/mi
  			/* add the tc to the list of this vpe's tc's. */
  			list_add(&t->tc, &v->tc);
  
-@@ -488,6 +500,7 @@
+@@ -488,6 +515,9 @@
  out_reenable:
  	/* release config state */
  	clear_c0_mvpcontrol(MVPCONTROL_VPC);
++#ifdef CONFIG_IFX_VPE_EXT
 +	back_to_back_c0_hazard();
++#endif
  
  	evpe(vpflags);
  	emt(mtflags);
 diff -u -N -r linux-3.14.18.orig/arch/mips/lantiq/prom.c linux-3.14.18/arch/mips/lantiq/prom.c
 --- linux-3.14.18.orig/arch/mips/lantiq/prom.c	2014-10-10 17:13:58.000000000 +0200
-+++ linux-3.14.18/arch/mips/lantiq/prom.c	2014-10-10 23:21:41.000000000 +0200
++++ linux-3.14.18/arch/mips/lantiq/prom.c	2014-10-15 10:42:21.000000000 +0200
 @@ -31,6 +31,10 @@
   */
  static struct ltq_soc_info soc_info;
@@ -1190,41 +1367,3 @@ diff -u -N -r linux-3.14.18.orig/arch/mips/lantiq/prom.c linux-3.14.18/arch/mips
  const char *get_system_type(void)
  {
  	return soc_info.sys_type;
-@@ -61,6 +65,37 @@
- 			strlcat(arcs_cmdline, " ", sizeof(arcs_cmdline));
- 		}
- 	}
-+
-+	if ( (scr = strstr(arcs_cmdline, "mem=")) )
-+	{                                             
-+	    scr += 4;                                 
-+	    memsz = 0;                                
-+	    while ( *scr >= '0' && *scr <= '9' )      
-+	    {                                         
-+	        memsz = memsz * 10 + *scr - '0';      
-+	        scr++;                                
-+	    }                                         
-+	    if ( *scr == 'm' || *scr == 'M' )         
-+	        memsz *= 1024 * 1024;                 
-+	    else if ( *scr == 'k' || *scr == 'K' )    
-+	        memsz *= 1024;                        
-+	    cp0_memsize = memsz;                      
-+	}
-+
-+    /* now handle envp */                                                           
-+    if (envp != (char **)KSEG1ADDR(0)) {                                            
-+        /* assume for now that exactly 3 values get passed */                       
-+        while (*envp) {                                                             
-+            *envp = (char *)KSEG1ADDR(*envp);                                       
-+            /* check for memsize */                                                 
-+            if (physical_memsize == 0 && strncmp(*envp, "memsize=", 8) == 0) {      
-+                scr = *envp + 8;                                                    
-+                memsz = (int)simple_strtoul(scr, NULL, 0);                          
-+                physical_memsize = memsz * 1024 * 1024;                             
-+	    }
-+	}
-+    }
-+
- }
- 
- extern struct boot_param_header __image_dtb;
